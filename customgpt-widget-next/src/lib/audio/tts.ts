@@ -306,3 +306,34 @@ export async function cleanupAudioFile(filepath: string): Promise<void> {
 function sleep(ms: number): Promise<void> {
   return new Promise((resolve) => setTimeout(resolve, ms));
 }
+
+/**
+ * Streaming TTS - Returns a ReadableStream for real-time audio delivery
+ *
+ * Use this for low-latency playback. First byte arrives in ~1-2s vs ~27s for buffered.
+ */
+export async function textToSpeechStream(text: string): Promise<ReadableStream<Uint8Array> | null> {
+  if (!OPENAI_API_KEY) {
+    console.error('[TTS Stream] OpenAI API key not configured');
+    return null;
+  }
+
+  const client = new OpenAI({
+    apiKey: OPENAI_API_KEY,
+    timeout: TTS_CONFIG.timeoutMs,
+  });
+
+  const startTime = performance.now();
+
+  const response = await client.audio.speech.create({
+    model: OPENAI_TTS_MODEL,
+    voice: OPENAI_TTS_VOICE as any,
+    input: text,
+    response_format: 'mp3',
+  });
+
+  const duration = ((performance.now() - startTime) / 1000).toFixed(3);
+  console.log(`[TIMING] TTS Stream request (OpenAI ${OPENAI_TTS_VOICE}): ${duration}s`);
+
+  return response.body as ReadableStream<Uint8Array>;
+}

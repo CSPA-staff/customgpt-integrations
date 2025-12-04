@@ -9,6 +9,19 @@ import { useTTS } from '@/hooks/useTTS';
 import { useAgentSettings } from '@/hooks/useAgentSettings';
 import { stripMarkdown } from '@/utils/textProcessing';
 import { SystemCapabilities } from '@/hooks/useCapabilities';
+// Agent capability types for query-level model selection
+type AgentCapability =
+  | 'fastest-responses'
+  | 'optimal-choice'
+  | 'advanced-reasoning'
+  | 'complex-tasks';
+
+const AGENT_CAPABILITIES: { value: AgentCapability; label: string; description: string }[] = [
+  { value: 'fastest-responses', label: 'Fastest', description: 'Quick responses for simple queries' },
+  { value: 'optimal-choice', label: 'Optimal', description: 'Balanced speed and quality' },
+  { value: 'advanced-reasoning', label: 'Advanced', description: 'Enhanced reasoning capabilities' },
+  { value: 'complex-tasks', label: 'Complex', description: 'Most capable for complex tasks' },
+];
 import './ChatContainer.css';
 
 interface ResponseFeedback {
@@ -26,6 +39,22 @@ interface Citation {
   image?: string | null;
 }
 
+interface CustomerIntelligence {
+  user_location?: string;
+  language?: string;
+  user_id?: number;
+  external_id?: string;
+  content_source?: string;
+  user_emotion?: string;
+  user_intent?: string;
+  risk_fidelity?: string;
+  risk_jailbreak?: string;
+  risk_prompt_leakage?: string;
+  risk_profanity?: string;
+  country?: string;
+  location?: string;
+}
+
 interface Message {
   role: 'user' | 'assistant';
   content: string;
@@ -34,6 +63,7 @@ interface Message {
   response_feedback?: ResponseFeedback | null;
   citations?: number[];  // Array of citation IDs from API
   citationDetails?: Citation[];  // Fetched citation metadata
+  customerIntelligence?: CustomerIntelligence | null;  // Customer insights data
 }
 
 interface ChatContainerProps {
@@ -66,11 +96,19 @@ const ChatContainer = ({ onVoiceMode, theme, capabilities }: ChatContainerProps)
   const [sessionId, setSessionId] = useState<string | null>(null);
   const [expandedMessages, setExpandedMessages] = useState<Set<string>>(new Set());
   const [expandedCitations, setExpandedCitations] = useState<Set<string>>(new Set());
+  const [expandedInsights, setExpandedInsights] = useState<Set<string>>(new Set());
+  const [loadingInsights, setLoadingInsights] = useState<Set<string>>(new Set());
   const [copiedMessageId, setCopiedMessageId] = useState<string | null>(null);
   const [reactingMessageId, setReactingMessageId] = useState<string | null>(null);
   const [isRecording, setIsRecording] = useState(false);
   const [isTranscribing, setIsTranscribing] = useState(false);
+  const [selectedCapability, setSelectedCapability] = useState<AgentCapability>('optimal-choice');
+  const [showPlusMenu, setShowPlusMenu] = useState(false);
+  const [showCapabilitySubmenu, setShowCapabilitySubmenu] = useState(false);
+  const [isUploading, setIsUploading] = useState(false);
+  const [uploadStatus, setUploadStatus] = useState<{ type: 'success' | 'error'; message: string } | null>(null);
   const messagesEndRef = useRef<HTMLDivElement>(null);
+  const fileInputRef = useRef<HTMLInputElement>(null);
   const messagesContainerRef = useRef<HTMLDivElement>(null);
   const mediaRecorderRef = useRef<MediaRecorder | null>(null);
   const audioChunksRef = useRef<Blob[]>([]);
@@ -118,6 +156,127 @@ const ChatContainer = ({ onVoiceMode, theme, capabilities }: ChatContainerProps)
 
     createConversation();
   }, []);
+
+  // Fetch customer intelligence insights for a message with retry logic
+  // The API needs ~5-8 seconds to process customer intelligence after message is sent
+  const fetchCustomerInsights = async (messageId: string, numericId: number, retryCount = 0): Promise<CustomerIntelligence | null> => {
+    if (!sessionId) {
+      console.log('[Insights] No sessionId available');
+      return null;
+    }
+
+    const MAX_RETRIES = 3;
+    const RETRY_DELAY = 3000; // 3 seconds between retries
+
+    try {
+      console.log(`[Insights] Fetching insights for message ${numericId} with session ${sessionId} (attempt ${retryCount + 1}/${MAX_RETRIES + 1})`);
+      const response = await fetch(`/api/chat/messages/${numericId}/insights?session_id=${sessionId}`);
+      if (!response.ok) {
+        console.error(`[Insights] Failed to fetch insights for message ${numericId}: ${response.status}`);
+        return null;
+      }
+      const data = await response.json();
+      console.log('[Insights] Received data:', data);
+
+      // If no insights yet and we haven't exceeded retries, wait and try again
+      if (!data.customer_intelligence && retryCount < MAX_RETRIES) {
+        console.log(`[Insights] No data yet, retrying in ${RETRY_DELAY}ms...`);
+        await new Promise(resolve => setTimeout(resolve, RETRY_DELAY));
+        return fetchCustomerInsights(messageId, numericId, retryCount + 1);
+      }
+
+      return data.customer_intelligence || null;
+    } catch (error) {
+      console.error(`[Insights] Error fetching insights:`, error);
+      return null;
+    }
+  };
+
+  // Toggle insights panel and fetch data if needed
+  const toggleInsights = async (messageId: string) => {
+    const numericId = parseInt(messageId.replace('msg-', ''));
+    console.log(`[Insights] Toggle called for ${messageId}, numericId: ${numericId}`);
+
+    // Check if already expanded - just collapse
+    if (expandedInsights.has(messageId)) {
+      setExpandedInsights(prev => {
+        const newSet = new Set(prev);
+        newSet.delete(messageId);
+        return newSet;
+      });
+      return;
+    }
+
+    // Check if we already have insights data
+    const message = messages.find(m => m.id === messageId);
+    if (message?.customerIntelligence) {
+      console.log('[Insights] Already have data, just expanding');
+      setExpandedInsights(prev => new Set(prev).add(messageId));
+      return;
+    }
+
+    // Fetch insights
+    console.log('[Insights] Fetching new insights...');
+    setLoadingInsights(prev => new Set(prev).add(messageId));
+    setExpandedInsights(prev => new Set(prev).add(messageId));
+
+    const insights = await fetchCustomerInsights(messageId, numericId);
+    console.log('[Insights] Setting insights to state:', insights);
+
+    if (insights) {
+      // Update messages state with insights and clear loading in one go
+      setMessages(prev => prev.map(msg =>
+        msg.id === messageId
+          ? { ...msg, customerIntelligence: insights }
+          : msg
+      ));
+    }
+
+    // Clear loading state after a small delay to ensure state update propagates
+    setTimeout(() => {
+      setLoadingInsights(prev => {
+        const newSet = new Set(prev);
+        newSet.delete(messageId);
+        return newSet;
+      });
+    }, 100);
+  };
+
+  // Helper to get emotion color class
+  const getEmotionColor = (emotion?: string): string => {
+    const emotions: Record<string, string> = {
+      'neutral': 'neutral',
+      'frustration': 'negative',
+      'happiness': 'positive',
+      'confusion': 'warning',
+      'anger': 'negative',
+      'satisfaction': 'positive',
+      'curiosity': 'neutral',
+      'excitement': 'positive',
+    };
+    return emotions[emotion?.toLowerCase() || ''] || 'neutral';
+  };
+
+  // Helper to get intent color class
+  const getIntentColor = (intent?: string): string => {
+    const intents: Record<string, string> = {
+      'transactional': 'transactional',
+      'informational': 'informational',
+      'troubleshooting': 'troubleshooting',
+      'navigational': 'navigational',
+      'support': 'support',
+      'feedback': 'feedback',
+    };
+    return intents[intent?.toLowerCase() || ''] || 'default';
+  };
+
+  // Helper to check if there are any risk flags
+  const hasRiskFlags = (intel?: CustomerIntelligence | null): boolean => {
+    if (!intel) return false;
+    return intel.risk_jailbreak !== 'no_event' ||
+           intel.risk_prompt_leakage !== 'no_event' ||
+           intel.risk_profanity !== 'no_event';
+  };
 
   // Fetch citation details in parallel
   const fetchCitationDetails = async (citationIds: number[]): Promise<Citation[]> => {
@@ -181,7 +340,8 @@ const ChatContainer = ({ onVoiceMode, theme, capabilities }: ChatContainerProps)
         body: JSON.stringify({
           session_id: sessionId,
           message: currentInput,
-          stream: false
+          stream: false,
+          agent_capability: selectedCapability
         })
       });
 
@@ -514,7 +674,8 @@ const ChatContainer = ({ onVoiceMode, theme, capabilities }: ChatContainerProps)
           body: JSON.stringify({
             session_id: sessionId,
             message: question,
-            stream: false
+            stream: false,
+            agent_capability: selectedCapability
           })
         });
 
@@ -606,6 +767,58 @@ const ChatContainer = ({ onVoiceMode, theme, capabilities }: ChatContainerProps)
       console.error('Failed to start new conversation:', error);
       alert('Failed to start new conversation. Please try again.');
     }
+  };
+
+  const handleFileUpload = async (event: React.ChangeEvent<HTMLInputElement>) => {
+    const file = event.target.files?.[0];
+    if (!file) return;
+
+    setIsUploading(true);
+    setUploadStatus(null);
+    setShowPlusMenu(false);
+
+    try {
+      const formData = new FormData();
+      formData.append('file', file);
+
+      const response = await fetch('/api/sources/upload', {
+        method: 'POST',
+        body: formData
+      });
+
+      const data = await response.json();
+
+      if (!response.ok || !data.success) {
+        throw new Error(data.error || 'Upload failed');
+      }
+
+      setUploadStatus({
+        type: 'success',
+        message: `"${file.name}" uploaded successfully!`
+      });
+
+      // Clear the status after 5 seconds
+      setTimeout(() => setUploadStatus(null), 5000);
+
+    } catch (error: any) {
+      console.error('File upload error:', error);
+      setUploadStatus({
+        type: 'error',
+        message: error.message || 'Failed to upload file'
+      });
+      // Clear error after 5 seconds
+      setTimeout(() => setUploadStatus(null), 5000);
+    } finally {
+      setIsUploading(false);
+      // Reset file input
+      if (fileInputRef.current) {
+        fileInputRef.current.value = '';
+      }
+    }
+  };
+
+  const triggerFileUpload = () => {
+    fileInputRef.current?.click();
   };
 
   return (
@@ -852,6 +1065,122 @@ const ChatContainer = ({ onVoiceMode, theme, capabilities }: ChatContainerProps)
                   </div>
                 )}
 
+                {/* Customer Intelligence Section */}
+                {msg.role === 'assistant' && msg.id.startsWith('msg-') && (
+                  <div className="message-insights">
+                    <button
+                      className="insights-header"
+                      onClick={() => toggleInsights(msg.id)}
+                      aria-expanded={expandedInsights.has(msg.id)}
+                    >
+                      <svg viewBox="0 0 24 24" fill="currentColor" width="14" height="14">
+                        <path d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm-2 15l-5-5 1.41-1.41L10 14.17l7.59-7.59L19 8l-9 9z"/>
+                      </svg>
+                      <span>Customer Intelligence</span>
+                      {msg.customerIntelligence && hasRiskFlags(msg.customerIntelligence) && (
+                        <span className="insights-risk-badge" title="Risk detected">!</span>
+                      )}
+                      <svg
+                        viewBox="0 0 24 24"
+                        fill="currentColor"
+                        width="16"
+                        height="16"
+                        className={`insights-toggle-icon ${expandedInsights.has(msg.id) ? 'expanded' : ''}`}
+                      >
+                        <path d="M7.41 8.59L12 13.17l4.59-4.58L18 10l-6 6-6-6 1.41-1.41z"/>
+                      </svg>
+                    </button>
+
+                    {expandedInsights.has(msg.id) && (
+                      <div className="insights-content">
+                        {loadingInsights.has(msg.id) ? (
+                          <div className="insights-loading">
+                            <svg viewBox="0 0 24 24" fill="currentColor" width="16" height="16" className="spinner">
+                              <path d="M12,4V2A10,10 0 0,0 2,12H4A8,8 0 0,1 12,4Z"/>
+                            </svg>
+                            <span>Analyzing...</span>
+                          </div>
+                        ) : msg.customerIntelligence ? (
+                          <div className="insights-grid">
+                            {/* Emotion */}
+                            <div className={`insight-card emotion-${getEmotionColor(msg.customerIntelligence.user_emotion)}`}>
+                              <div className="insight-details">
+                                <span className="insight-label">Emotion</span>
+                                <span className="insight-value">{msg.customerIntelligence.user_emotion || 'Unknown'}</span>
+                              </div>
+                            </div>
+
+                            {/* Intent */}
+                            <div className={`insight-card intent-${getIntentColor(msg.customerIntelligence.user_intent)}`}>
+                              <div className="insight-details">
+                                <span className="insight-label">Intent</span>
+                                <span className="insight-value">{msg.customerIntelligence.user_intent || 'Unknown'}</span>
+                              </div>
+                            </div>
+
+                            {/* Location */}
+                            <div className="insight-card">
+                              <div className="insight-details">
+                                <span className="insight-label">Location</span>
+                                <span className="insight-value">{msg.customerIntelligence.country || msg.customerIntelligence.user_location || 'Unknown'}</span>
+                              </div>
+                            </div>
+
+                            {/* Language */}
+                            <div className="insight-card">
+                              <div className="insight-details">
+                                <span className="insight-label">Language</span>
+                                <span className="insight-value">{msg.customerIntelligence.language || 'Unknown'}</span>
+                              </div>
+                            </div>
+
+                            {/* Content Source */}
+                            <div className="insight-card">
+                              <div className="insight-details">
+                                <span className="insight-label">Content Source</span>
+                                <span className="insight-value">{msg.customerIntelligence.content_source || 'Unknown'}</span>
+                              </div>
+                            </div>
+
+                            {/* Response Quality */}
+                            <div className={`insight-card quality-${msg.customerIntelligence.risk_fidelity?.toLowerCase() === 'good' ? 'good' : 'warning'}`}>
+                              <div className="insight-details">
+                                <span className="insight-label">Response Quality</span>
+                                <span className="insight-value">{msg.customerIntelligence.risk_fidelity || 'Unknown'}</span>
+                              </div>
+                            </div>
+
+                            {/* Security Monitoring Section - Always show */}
+                            <div className={`insight-card security-card full-width ${hasRiskFlags(msg.customerIntelligence) ? 'has-risks' : 'all-clear'}`}>
+                              <div className="insight-details">
+                                <span className="insight-label">Security Monitoring</span>
+                                <div className="security-flags">
+                                  <span className={`security-flag ${msg.customerIntelligence.risk_jailbreak === 'no_event' ? 'clear' : 'alert'}`}>
+                                    <span className="flag-indicator"></span>
+                                    Jailbreak: {msg.customerIntelligence.risk_jailbreak === 'no_event' ? 'Clear' : 'Detected'}
+                                  </span>
+                                  <span className={`security-flag ${msg.customerIntelligence.risk_prompt_leakage === 'no_event' ? 'clear' : 'alert'}`}>
+                                    <span className="flag-indicator"></span>
+                                    Prompt Leakage: {msg.customerIntelligence.risk_prompt_leakage === 'no_event' ? 'Clear' : 'Detected'}
+                                  </span>
+                                  <span className={`security-flag ${msg.customerIntelligence.risk_profanity === 'no_event' ? 'clear' : 'alert'}`}>
+                                    <span className="flag-indicator"></span>
+                                    Profanity: {msg.customerIntelligence.risk_profanity === 'no_event' ? 'Clear' : 'Detected'}
+                                  </span>
+                                </div>
+                              </div>
+                            </div>
+                          </div>
+                        ) : (
+                          <div className="insights-empty">
+                            <span>No insights available for this message</span>
+                          </div>
+                        )}
+                      </div>
+                    )}
+                  </div>
+                )}
+
                 <div className="message-actions">
                   {msg.role === 'assistant' && (
                     <>
@@ -972,7 +1301,115 @@ const ChatContainer = ({ onVoiceMode, theme, capabilities }: ChatContainerProps)
         <div ref={messagesEndRef} />
       </div>
 
+      {/* Upload Status Toast */}
+      {uploadStatus && (
+        <div className={`upload-toast ${uploadStatus.type}`}>
+          {uploadStatus.type === 'success' ? (
+            <svg viewBox="0 0 24 24" fill="currentColor" width="16" height="16">
+              <path d="M9 16.17L4.83 12l-1.42 1.41L9 19 21 7l-1.41-1.41z"/>
+            </svg>
+          ) : (
+            <svg viewBox="0 0 24 24" fill="currentColor" width="16" height="16">
+              <path d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm1 15h-2v-2h2v2zm0-4h-2V7h2v6z"/>
+            </svg>
+          )}
+          <span>{uploadStatus.message}</span>
+        </div>
+      )}
+
       <div className="chat-input-container">
+        {/* Hidden file input */}
+        <input
+          ref={fileInputRef}
+          type="file"
+          className="hidden-file-input"
+          onChange={handleFileUpload}
+          accept=".pdf,.doc,.docx,.xls,.xlsx,.ppt,.pptx,.txt,.csv,.md,.json"
+        />
+
+        {/* Plus Menu */}
+        <div className="plus-menu-container">
+          <button
+            className={`plus-menu-toggle ${showPlusMenu ? 'open' : ''} ${isUploading ? 'uploading' : ''}`}
+            onClick={() => {
+              setShowPlusMenu(!showPlusMenu);
+              setShowCapabilitySubmenu(false);
+            }}
+            disabled={isUploading}
+            title="More options"
+          >
+            {isUploading ? (
+              <svg viewBox="0 0 24 24" fill="currentColor" width="20" height="20" className="spinner">
+                <path d="M12,4V2A10,10 0 0,0 2,12H4A8,8 0 0,1 12,4Z"/>
+              </svg>
+            ) : (
+              <svg viewBox="0 0 24 24" fill="currentColor" width="20" height="20">
+                <path d="M19 13h-6v6h-2v-6H5v-2h6V5h2v6h6v2z"/>
+              </svg>
+            )}
+          </button>
+
+          {showPlusMenu && (
+            <div className="plus-menu-dropdown">
+              {/* Agent Capability Option */}
+              <div
+                className="plus-menu-item has-submenu"
+                onMouseEnter={() => setShowCapabilitySubmenu(true)}
+                onMouseLeave={() => setShowCapabilitySubmenu(false)}
+              >
+                <svg viewBox="0 0 24 24" fill="currentColor" width="16" height="16">
+                  <path d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm-1 17.93c-3.95-.49-7-3.85-7-7.93 0-.62.08-1.21.21-1.79L9 15v1c0 1.1.9 2 2 2v1.93zm6.9-2.54c-.26-.81-1-1.39-1.9-1.39h-1v-3c0-.55-.45-1-1-1H8v-2h2c.55 0 1-.45 1-1V7h2c1.1 0 2-.9 2-2v-.41c2.93 1.19 5 4.06 5 7.41 0 2.08-.8 3.97-2.1 5.39z"/>
+                </svg>
+                <span>Model</span>
+                <span className="current-capability">{AGENT_CAPABILITIES.find(c => c.value === selectedCapability)?.label}</span>
+                <svg viewBox="0 0 24 24" fill="currentColor" width="12" height="12" className="submenu-arrow">
+                  <path d="M7.41 15.41L12 10.83l4.59 4.58L18 14l-6-6-6 6z"/>
+                </svg>
+
+                {/* Capability Submenu */}
+                {showCapabilitySubmenu && (
+                  <div className="capability-submenu">
+                    {AGENT_CAPABILITIES.map((cap) => (
+                      <button
+                        key={cap.value}
+                        className={`capability-submenu-option ${selectedCapability === cap.value ? 'selected' : ''}`}
+                        onClick={() => {
+                          setSelectedCapability(cap.value);
+                          setShowPlusMenu(false);
+                          setShowCapabilitySubmenu(false);
+                        }}
+                      >
+                        <span className="capability-option-label">{cap.label}</span>
+                        <span className="capability-option-desc">{cap.description}</span>
+                        {selectedCapability === cap.value && (
+                          <svg viewBox="0 0 24 24" fill="currentColor" width="14" height="14" className="check-icon">
+                            <path d="M9 16.17L4.83 12l-1.42 1.41L9 19 21 7l-1.41-1.41z"/>
+                          </svg>
+                        )}
+                      </button>
+                    ))}
+                  </div>
+                )}
+              </div>
+
+              {/* File Upload Option */}
+              <button
+                className="plus-menu-item"
+                onClick={() => {
+                  triggerFileUpload();
+                  setShowPlusMenu(false);
+                }}
+              >
+                <svg viewBox="0 0 24 24" fill="currentColor" width="16" height="16">
+                  <path d="M14 2H6c-1.1 0-2 .9-2 2v16c0 1.1.9 2 2 2h12c1.1 0 2-.9 2-2V8l-6-6zM6 20V4h7v5h5v11H6z"/>
+                  <path d="M8 15h8v2H8zm0-4h8v2H8z"/>
+                </svg>
+                <span>Upload File</span>
+              </button>
+            </div>
+          )}
+        </div>
+
         <div className="input-wrapper">
           {enableSTT && (
             <button

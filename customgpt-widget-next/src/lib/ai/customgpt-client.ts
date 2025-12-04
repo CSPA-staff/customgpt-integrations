@@ -29,6 +29,22 @@ export interface ConversationData {
   created_at: string;
 }
 
+export interface CustomerIntelligence {
+  user_location?: string;
+  language?: string;
+  user_id?: number;
+  external_id?: string;
+  content_source?: string;
+  user_emotion?: string;
+  user_intent?: string;
+  risk_fidelity?: string;
+  risk_jailbreak?: string;
+  risk_prompt_leakage?: string;
+  risk_profanity?: string;
+  country?: string;
+  location?: string;
+}
+
 export interface MessageData {
   id: number;
   user_query: string;
@@ -41,6 +57,7 @@ export interface MessageData {
     user_id: number;
     reaction: 'liked' | 'disliked' | null;
   };
+  customer_intelligence?: CustomerIntelligence;
 }
 
 export interface ApiResponse<T> {
@@ -54,6 +71,23 @@ export interface StreamData {
   message?: string;
   error?: string;
 }
+
+/**
+ * Agent capability options for query-level model selection
+ * These map to different AI model configurations in CustomGPT
+ */
+export type AgentCapability =
+  | 'fastest-responses'    // Optimized for speed - GPT-4.1 mini
+  | 'optimal-choice'       // Balanced performance - GPT-4.1 mini
+  | 'advanced-reasoning'   // Enhanced reasoning - GPT-4.1
+  | 'complex-tasks';       // Most capable - o3
+
+export const AGENT_CAPABILITIES: { value: AgentCapability; label: string; description: string }[] = [
+  { value: 'fastest-responses', label: 'Fastest', description: 'Quick responses for simple queries' },
+  { value: 'optimal-choice', label: 'Optimal', description: 'Balanced speed and quality' },
+  { value: 'advanced-reasoning', label: 'Advanced', description: 'Enhanced reasoning capabilities' },
+  { value: 'complex-tasks', label: 'Complex', description: 'Most capable for complex tasks' },
+];
 
 export interface AgentSettings {
   chatbot_avatar: string | null;
@@ -127,6 +161,40 @@ export interface AgentDetails {
   are_licenses_allowed?: boolean;
 }
 
+export interface SourcePage {
+  id: number;
+  page_url: string;
+  page_url_hash: string;
+  project_id: number;
+  s3_path: string;
+  crawl_status: 'queued' | 'crawled' | 'failed';
+  index_status: 'queued' | 'indexed' | 'failed';
+  is_file: boolean;
+  is_refreshable: boolean;
+  is_file_kept: boolean;
+  filename: string;
+  filesize: number;
+  created_at: string;
+  updated_at: string;
+  deleted_at?: string | null;
+}
+
+export interface SourceData {
+  id: number;
+  created_at: string;
+  updated_at: string;
+  type: 'sitemap' | 'upload';
+  settings: {
+    executive_js?: boolean;
+    data_refresh_frequency?: string;
+    create_new_pages?: boolean;
+    remove_unexist_pages?: boolean;
+    refresh_existing_pages?: string;
+    sitemap_path?: string;
+  };
+  pages: SourcePage[];
+}
+
 /**
  * CustomGPT API Client
  */
@@ -189,9 +257,10 @@ export class CustomGPTClient {
    *
    * @param sessionId - The conversation session ID
    * @param userMessage - The user's message text
+   * @param agentCapability - Optional agent capability for query-level model selection
    * @returns Message response with AI response and citations
    */
-  async sendMessage(sessionId: string, userMessage: string): Promise<MessageData> {
+  async sendMessage(sessionId: string, userMessage: string, agentCapability?: AgentCapability): Promise<MessageData> {
     const url = `${this.baseUrl}/projects/${this.projectId}/conversations/${sessionId}/messages`;
 
     const params = new URLSearchParams({
@@ -199,10 +268,18 @@ export class CustomGPTClient {
       lang: this.language,
     });
 
-    const payload = {
+    const payload: Record<string, string> = {
       prompt: userMessage,
       response_source: 'default',
     };
+
+    // Add agent_capability if provided
+    if (agentCapability) {
+      payload.agent_capability = agentCapability;
+    }
+
+    console.log('[CustomGPT] sendMessage - capability:', agentCapability || 'none');
+    console.log('[CustomGPT] sendMessage - payload:', JSON.stringify(payload));
 
     const response = await fetch(`${url}?${params}`, {
       method: 'POST',
@@ -215,6 +292,7 @@ export class CustomGPTClient {
     }
 
     const data: ApiResponse<MessageData> = await response.json();
+    console.log('[CustomGPT] sendMessage - response received');
 
     if (data.status !== 'success') {
       throw new Error(`Failed to send message: ${data.message || 'Unknown error'}`);
@@ -228,9 +306,10 @@ export class CustomGPTClient {
    *
    * @param sessionId - The conversation session ID
    * @param userMessage - The user's message text
+   * @param agentCapability - Optional agent capability for query-level model selection
    * @returns AsyncGenerator yielding chunks of the AI response
    */
-  async *sendMessageStream(sessionId: string, userMessage: string): AsyncGenerator<string, void, unknown> {
+  async *sendMessageStream(sessionId: string, userMessage: string, agentCapability?: AgentCapability): AsyncGenerator<string, void, unknown> {
     const url = `${this.baseUrl}/projects/${this.projectId}/conversations/${sessionId}/messages`;
 
     const params = new URLSearchParams({
@@ -238,10 +317,15 @@ export class CustomGPTClient {
       lang: this.language,
     });
 
-    const payload = {
+    const payload: Record<string, string> = {
       prompt: userMessage,
       response_source: 'default',
     };
+
+    // Add agent_capability if provided
+    if (agentCapability) {
+      payload.agent_capability = agentCapability;
+    }
 
     const response = await fetch(`${url}?${params}`, {
       method: 'POST',
@@ -393,6 +477,34 @@ export class CustomGPTClient {
   }
 
   /**
+   * Get a single message with customer intelligence insights
+   *
+   * @param sessionId - The conversation session ID
+   * @param messageId - The message ID (prompt_id)
+   * @returns Message data with customer intelligence
+   */
+  async getMessageWithInsights(sessionId: string, messageId: number): Promise<MessageData> {
+    const url = `${this.baseUrl}/projects/${this.projectId}/conversations/${sessionId}/messages/${messageId}?includeInsights=true`;
+
+    const response = await fetch(url, {
+      method: 'GET',
+      headers: this.getHeaders(),
+    });
+
+    if (!response.ok) {
+      throw new Error(`Failed to get message insights: ${response.status} ${response.statusText}`);
+    }
+
+    const data: ApiResponse<MessageData> = await response.json();
+
+    if (data.status !== 'success') {
+      throw new Error(`Failed to get message insights: ${data.message || 'Unknown error'}`);
+    }
+
+    return data.data;
+  }
+
+  /**
    * Get citation details
    *
    * @param citationId - The citation ID
@@ -466,6 +578,47 @@ export class CustomGPTClient {
 
     if (data.status !== 'success') {
       throw new Error(`Failed to get agent details: ${data.message || 'Unknown error'}`);
+    }
+
+    return data.data;
+  }
+
+  /**
+   * Upload a file as a new source for the agent
+   *
+   * @param file - The file to upload
+   * @returns Source data with upload status
+   */
+  async uploadFile(file: File): Promise<SourceData> {
+    const url = `${this.baseUrl}/projects/${this.projectId}/sources`;
+
+    const formData = new FormData();
+    formData.append('file', file);
+
+    const response = await fetch(url, {
+      method: 'POST',
+      headers: {
+        'accept': 'application/json',
+        'authorization': `Bearer ${this.apiKey}`,
+      },
+      body: formData,
+    });
+
+    if (!response.ok) {
+      let errorMessage = `${response.status} ${response.statusText}`;
+      try {
+        const errorBody = await response.json();
+        errorMessage = errorBody.data?.message || errorBody.message || errorMessage;
+      } catch {
+        // Couldn't parse error body
+      }
+      throw new Error(`Failed to upload file: ${errorMessage}`);
+    }
+
+    const data: ApiResponse<SourceData> = await response.json();
+
+    if (data.status !== 'success') {
+      throw new Error(`Failed to upload file: ${data.message || 'Unknown error'}`);
     }
 
     return data.data;

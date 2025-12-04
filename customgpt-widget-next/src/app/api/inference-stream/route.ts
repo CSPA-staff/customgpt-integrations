@@ -7,11 +7,11 @@
 import { NextRequest } from 'next/server';
 import { transcribeFromBuffer } from '@/lib/audio/stt';
 import { getCompletion } from '@/lib/ai/completion';
-import { textToSpeech, cleanupAudioFile } from '@/lib/audio/tts';
+import { textToSpeechStream } from '@/lib/audio/tts';
 import { customGPTClient } from '@/lib/ai/customgpt-client';
-import { CUSTOMGPT_CONFIG } from '@/config/constants';
+import { CUSTOMGPT_CONFIG, OPENAI_CONFIG, TTS_CONFIG } from '@/config/constants';
 import { getTranslations } from '@/config/i18n';
-import fs from 'fs/promises';
+import OpenAI from 'openai';
 
 export const runtime = 'nodejs';
 export const maxDuration = 60;
@@ -138,21 +138,28 @@ export async function POST(request: NextRequest) {
           timing: aiDuration
         });
 
-        // 5. Text-to-Speech (runs in background, user already sees text)
+        // 5. Text-to-Speech - Stream directly without disk I/O
         const ttsStart = performance.now();
-        const audioPath = await textToSpeech(aiResponse);
+
+        // Use OpenAI TTS directly for faster streaming
+        const openaiClient = new OpenAI({
+          apiKey: OPENAI_CONFIG.apiKey,
+          timeout: TTS_CONFIG.timeoutMs,
+        });
+
+        const ttsResponse = await openaiClient.audio.speech.create({
+          model: OPENAI_CONFIG.ttsModel,
+          voice: OPENAI_CONFIG.ttsVoice as any,
+          input: aiResponse,
+          response_format: 'mp3',
+        });
+
+        // Read audio directly into memory (no disk write)
+        const audioArrayBuffer = await ttsResponse.arrayBuffer();
+        const audioData = Buffer.from(audioArrayBuffer);
+
         const ttsDuration = ((performance.now() - ttsStart) / 1000).toFixed(3);
         timings.tts_total = ttsDuration;
-
-        // Read audio file
-        const readStart = performance.now();
-        const audioData = await fs.readFile(audioPath);
-        timings.read_audio = ((performance.now() - readStart) / 1000).toFixed(3);
-
-        // Cleanup
-        const cleanupStart = performance.now();
-        await cleanupAudioFile(audioPath);
-        timings.cleanup = ((performance.now() - cleanupStart) / 1000).toFixed(3);
 
         // Encode conversation for next request
         const encodeStart = performance.now();

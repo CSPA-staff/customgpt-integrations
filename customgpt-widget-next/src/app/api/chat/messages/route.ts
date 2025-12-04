@@ -3,12 +3,20 @@
  */
 
 import { NextRequest, NextResponse } from 'next/server';
-import { customGPTClient } from '@/lib/ai/customgpt-client';
+import { customGPTClient, AgentCapability } from '@/lib/ai/customgpt-client';
 import { processMarkdown } from '@/lib/markdown-processor';
+
+// Valid agent capabilities
+const VALID_CAPABILITIES: AgentCapability[] = [
+  'fastest-responses',
+  'optimal-choice',
+  'advanced-reasoning',
+  'complex-tasks'
+];
 
 export async function POST(request: NextRequest) {
   try {
-    const { session_id, message, stream } = await request.json();
+    const { session_id, message, stream, agent_capability } = await request.json();
 
     if (!session_id || !message) {
       return NextResponse.json(
@@ -16,6 +24,11 @@ export async function POST(request: NextRequest) {
         { status: 400 }
       );
     }
+
+    // Validate agent_capability if provided
+    const capability: AgentCapability | undefined = agent_capability && VALID_CAPABILITIES.includes(agent_capability)
+      ? agent_capability
+      : undefined;
 
     const startTime = performance.now();
 
@@ -25,7 +38,7 @@ export async function POST(request: NextRequest) {
       const customStream = new ReadableStream({
         async start(controller) {
           try {
-            for await (const chunk of customGPTClient.sendMessageStream(session_id, message)) {
+            for await (const chunk of customGPTClient.sendMessageStream(session_id, message, capability)) {
               const data = `data: ${JSON.stringify({ chunk })}\n\n`;
               controller.enqueue(encoder.encode(data));
             }
@@ -45,11 +58,11 @@ export async function POST(request: NextRequest) {
       });
     } else {
       // Non-streaming response
-      const response = await customGPTClient.sendMessage(session_id, message);
+      const response = await customGPTClient.sendMessage(session_id, message, capability);
       const processedResponse = processMarkdown(response.openai_response);
 
       const duration = ((performance.now() - startTime) / 1000).toFixed(3);
-      console.log(`[TIMING] Chat Message: ${duration}s`);
+      console.log(`[TIMING] Chat Message: ${duration}s (capability: ${capability || 'default'})`);
       console.log('[API] Response citations:', response.citations);
 
       return NextResponse.json({
