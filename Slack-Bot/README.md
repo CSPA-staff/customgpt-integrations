@@ -21,6 +21,75 @@ Get you [CustomGPT.ai RAG API key here](https://app.customgpt.ai/register?utm_so
 - **Error Handling**: Graceful error messages and retry logic
 - **Analytics**: Track usage and performance metrics
 
+## Quick Start: Local Development & Testing
+
+Get the bot running locally in 5 minutes:
+
+### 1. Clone and Install
+
+```bash
+git clone https://github.com/Poll-The-People/customgpt-integrations.git
+cd customgpt-integrations/Slack-Bot
+
+# Create virtual environment (recommended)
+python -m venv venv
+source venv/bin/activate  # On Windows: venv\Scripts\activate
+
+# Install dependencies
+pip install -r requirements.txt
+```
+
+### 2. Set Up Environment Variables
+
+```bash
+# Copy the example env file
+cp .env.example .env
+
+# Edit .env with your credentials
+# Required variables:
+SLACK_BOT_TOKEN=xoxb-your-bot-token
+SLACK_SIGNING_SECRET=your-signing-secret
+CUSTOMGPT_API_KEY=your-customgpt-api-key
+CUSTOMGPT_PROJECT_ID=your-project-id
+```
+
+### 3. Expose Local Server with ngrok
+
+Slack requires HTTPS endpoints. Use ngrok to create a tunnel:
+
+```bash
+# Install ngrok: https://ngrok.com/download
+ngrok http 3000
+```
+
+Copy the HTTPS URL (e.g., `https://abc123.ngrok.io`)
+
+### 4. Configure Slack App
+
+1. Go to your [Slack App settings](https://api.slack.com/apps)
+2. Under **Event Subscriptions**, set Request URL to: `https://your-ngrok-url.ngrok.io/slack/events`
+3. Under **Slash Commands**, update the Request URL for each command
+4. Under **Interactivity & Shortcuts**, set Request URL to: `https://your-ngrok-url.ngrok.io/slack/events`
+
+### 5. Run the Bot
+
+```bash
+python bot.py
+```
+
+The bot should now respond to mentions and commands in your Slack workspace!
+
+### Testing Tips
+
+- **Debug mode**: Set `LOG_LEVEL=DEBUG` for verbose logging
+- **Test mentions**: `@YourBotName what is your refund policy?`
+- **Test slash commands**: `/customgpt How do I get started?`
+- **Switch agents**: `/customgpt-agent 12345`
+
+> **Note**: For production deployment options, see the [Deployment Guide](DEPLOYMENT.md).
+
+---
+
 ## Prerequisites
 
 - Python 3.8+
@@ -363,6 +432,10 @@ python bot.py
 ```
 
 ## Resources
+
+### Deployment Guide
+
+- **[Full Deployment Guide](DEPLOYMENT.md)** - Railway, Render, Fly.io, Docker, Kubernetes, and more
 
 ### CustomGPT Links
 - **[CustomGPT Landing Page](https://customgpt.ai?utm_source=github_integrations)**

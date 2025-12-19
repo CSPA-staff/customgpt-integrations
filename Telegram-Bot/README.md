@@ -10,6 +10,7 @@ Get your [CustomGPT.ai RAG API key here](https://app.customgpt.ai/register?utm_s
 
 - **AI-Powered Responses**: Uses CustomGPT.ai's API to answer questions from your knowledge base
 - **Conversation Management**: Maintains context within chat sessions
+- **Citations Support**: Display clickable source links at the end of responses
 - **Rate Limiting**: Built-in daily (100) and per-minute (5) message limits
 - **Starter Questions**: Interactive buttons with example queries
 - **Usage Statistics**: Track your daily usage with `/stats`
@@ -59,6 +60,138 @@ python bot.py
 ```
 
 This runs the bot in polling mode - perfect for development and testing.
+
+---
+
+## Local Development & Testing
+
+### Step 1: Create a Telegram Bot
+
+1. Open Telegram and search for [@BotFather](https://t.me/botfather)
+2. Send `/newbot` command
+3. Follow the prompts:
+   - Enter a name for your bot (e.g., "My CustomGPT Bot")
+   - Enter a username (must end in `bot`, e.g., `my_customgpt_bot`)
+4. Copy the **API token** provided by BotFather
+5. (Optional) Set bot description with `/setdescription`
+
+### Step 2: Get CustomGPT Credentials
+
+1. Sign up at [CustomGPT.ai](https://app.customgpt.ai/register?utm_source=github_integrations)
+2. Create a new project or use an existing one
+3. Navigate to **Settings → API Keys**
+4. Generate a new API key and copy it
+5. Note your **Project ID** from the project URL or settings
+
+### Step 3: Set Up Local Environment
+
+```bash
+# Clone the repository (if not already done)
+cd Telegram-Bot/
+
+# Create a virtual environment (recommended)
+python -m venv venv
+
+# Activate virtual environment
+# On macOS/Linux:
+source venv/bin/activate
+# On Windows:
+venv\Scripts\activate
+
+# Install dependencies
+pip install -r requirements.txt
+```
+
+### Step 4: Configure Environment Variables
+
+Create a `.env` file in the project root:
+
+```env
+# Required
+TELEGRAM_BOT_TOKEN=your_bot_token_from_botfather
+CUSTOMGPT_API_KEY=your_customgpt_api_key
+CUSTOMGPT_PROJECT_ID=your_project_id
+
+# Optional - customize limits
+DAILY_LIMIT=100
+MINUTE_LIMIT=5
+SESSION_TIMEOUT_MINUTES=30
+```
+
+### Step 5: Run and Test
+
+```bash
+# Start the bot
+python bot.py
+```
+
+You should see output like:
+
+```text
+Bot started successfully!
+```
+
+### Step 6: Test Your Bot
+
+1. Open Telegram and search for your bot by username
+2. Click **Start** or send `/start`
+3. You should see a welcome message with example buttons
+4. Try sending a question to test the CustomGPT integration
+
+### Testing Commands
+
+| Command       | What to Test                          |
+| ------------- | ------------------------------------- |
+| `/start`      | Welcome message and buttons appear    |
+| `/help`       | Help text displays correctly          |
+| `/examples`   | Example questions show as buttons     |
+| `/stats`      | Usage statistics display              |
+| `/clear`      | Confirmation that session was cleared |
+| Any question  | Bot responds with CustomGPT answer    |
+
+### Debugging Tips
+
+**Enable verbose logging:**
+```python
+# Add at the top of bot.py
+import logging
+logging.basicConfig(
+    level=logging.DEBUG,
+    format='%(asctime)s - %(name)s - %(levelname)s - %(message)s'
+)
+```
+
+**Common issues:**
+
+| Issue                 | Solution                              |
+| --------------------- | ------------------------------------- |
+| `ModuleNotFoundError` | Run `pip install -r requirements.txt` |
+| `Invalid token`       | Check TELEGRAM_BOT_TOKEN in `.env`    |
+| `Unauthorized`        | Verify CUSTOMGPT_API_KEY is correct   |
+| `Project not found`   | Check CUSTOMGPT_PROJECT_ID            |
+| SSL errors (macOS)    | Already handled with certifi          |
+| Bot not responding    | Ensure bot.py is running              |
+
+**Test rate limiting:**
+```bash
+# Send 6+ messages quickly to trigger minute limit
+# Check /stats to see usage counts
+```
+
+**Test session timeout:**
+```python
+# Temporarily set shorter timeout in .env for testing
+SESSION_TIMEOUT_MINUTES=1
+```
+
+### Development Workflow
+
+1. **Make changes** to `bot.py`, `customgpt_client.py`, etc.
+2. **Stop the bot** (Ctrl+C)
+3. **Restart** with `python bot.py`
+4. **Test** in Telegram
+
+> **Tip:** Use a separate test bot token during development to avoid affecting production users.
 
 ---
 
@@ -254,7 +387,6 @@ For free tier with better uptime:
 ```toml
 run = "python bot.py"
 language = "python3"
-
 [packager]
 language = "python3"
 ```
@@ -374,6 +506,53 @@ WantedBy=multi-user.target
 ---
 
 ## Technical Details
+
+### Enabling Citations
+
+To display source citations at the end of bot responses, you need to enable inline citations for the API in your CustomGPT agent settings.
+
+#### Option 1: Via API (Recommended)
+
+Run this curl command to enable citations (replace with your credentials):
+
+```bash
+curl --request POST \
+     --url "https://app.customgpt.ai/api/v1/projects/YOUR_PROJECT_ID/settings" \
+     --header "accept: application/json" \
+     --header "Authorization: Bearer YOUR_API_KEY" \
+     --header "content-type: multipart/form-data" \
+     --form "enable_inline_citations_api=true" \
+     --form "hide_sources_from_responses=false"
+```
+
+#### Option 2: Via Dashboard
+
+1. Go to [CustomGPT.ai Dashboard](https://app.customgpt.ai)
+2. Open your agent/project
+3. Navigate to **Settings**
+4. Find **"Enable inline citations for API"** and enable it
+5. Ensure **"Hide sources from responses"** is disabled
+6. Save settings
+
+#### How Citations Work
+
+When enabled, the bot will:
+1. Extract citation markers from the API response
+2. Fetch source metadata (title, URL) for each citation
+3. Display clickable links at the end of the response
+
+Example output:
+
+```text
+[Bot's response text here]
+
+📚 Sources:
+1. Getting Started Guide
+2. API Documentation
+3. Best Practices
+```
+
+Each source title is a clickable hyperlink to the original document.
 
 ### Rate Limiting
 - **Daily Limit**: 100 messages per user

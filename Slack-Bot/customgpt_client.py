@@ -37,16 +37,23 @@ class CustomGPTClient:
         if self._session:
             await self._session.close()
     
-    async def create_conversation(self, project_id: str) -> Dict[str, Any]:
+    async def create_conversation(self, project_id: str, name: str = None) -> Dict[str, Any]:
         """Create a new conversation"""
         url = f"{self.base_url}/projects/{project_id}/conversations"
-        
+
+        payload = {
+            "name": name or f"slack-conversation-{datetime.now().strftime('%Y%m%d-%H%M%S')}"
+        }
+
         try:
             session = await self._get_session()
-            async with session.post(url, headers=self.headers) as response:
-                if response.status == 201:
-                    data = await response.json()
-                    return data['data']
+            async with session.post(url, headers=self.headers, json=payload) as response:
+                data = await response.json()
+                logger.info(f"Create conversation response (status={response.status}): {data}")
+                if response.status in (200, 201):
+                    if isinstance(data, dict) and 'data' in data:
+                        return data['data']
+                    return data
                 else:
                     error_text = await response.text()
                     logger.error(f"Failed to create conversation: {response.status} - {error_text}")
@@ -83,14 +90,17 @@ class CustomGPTClient:
         try:
             session = await self._get_session()
             async with session.post(url, headers=self.headers, json=payload) as response:
+                data = await response.json()
+                logger.info(f"Send message response (status={response.status}): {data}")
                 if response.status == 200:
-                    data = await response.json()
-                    return data['data']
+                    # Handle different response formats
+                    if isinstance(data, dict) and 'data' in data:
+                        return data['data']
+                    return data
                 elif response.status == 429:
                     raise Exception("Rate limit exceeded. Please try again later.")
                 else:
-                    error_text = await response.text()
-                    logger.error(f"Failed to send message: {response.status} - {error_text}")
+                    logger.error(f"Failed to send message: {response.status} - {data}")
                     raise Exception(f"API Error: {response.status}")
         except Exception as e:
             logger.error(f"Error sending message: {str(e)}")

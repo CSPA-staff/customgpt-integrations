@@ -48,6 +48,16 @@ agent_registry: Dict[str, str] = {}
 # Store bot user ID for message filtering
 bot_user_id: Optional[str] = None
 
+@app.middleware
+async def log_request(logger, body, next):
+    """Log all incoming requests for debugging"""
+    request_type = body.get('type', 'unknown')
+    if request_type == 'block_actions':
+        actions = body.get('actions', [])
+        action_ids = [a.get('action_id') for a in actions]
+        logger.info(f"=== BLOCK_ACTIONS received: {action_ids} ===")
+    await next()
+
 def get_agent_id(channel_id: str, user_id: str) -> str:
     """Get the active agent ID for a channel or user"""
     # Check channel-specific agent first, then user-specific, then default
@@ -59,30 +69,80 @@ def set_agent_id(context_type: str, context_id: str, agent_id: str):
     """Set the active agent ID for a channel or user"""
     agent_registry[f"{context_type}:{context_id}"] = agent_id
 
-async def format_response_with_citations(response: Dict[str, Any]) -> Dict[str, Any]:
+def convert_markdown_to_slack(text: str) -> str:
+    """Convert Markdown formatting to Slack mrkdwn format"""
+    if not text:
+        return text
+
+    # Convert headers: # Header -> *Header*
+    text = re.sub(r'^#{1,6}\s+(.+)$', r'*\1*', text, flags=re.MULTILINE)
+
+    # Convert bold: **text** -> *text*
+    text = re.sub(r'\*\*(.+?)\*\*', r'*\1*', text)
+
+    # Convert italic: _text_ stays the same (Slack uses _text_)
+    # Convert italic: *text* (single) -> _text_ (but be careful not to affect bold)
+
+    # Convert inline code: `code` stays the same
+
+    # Convert links: [text](url) -> <url|text>
+    text = re.sub(r'\[([^\]]+)\]\(([^)]+)\)', r'<\2|\1>', text)
+
+    # Convert bullet points: - item -> • item
+    text = re.sub(r'^[\-\*]\s+', '• ', text, flags=re.MULTILINE)
+
+    # Convert numbered lists: keep as is, Slack handles them
+
+    return text
+
+async def format_response_with_citations(response: Dict[str, Any], agent_id: str = None) -> Dict[str, Any]:
     """Format CustomGPT response with citations for Slack"""
     blocks = []
-    
-    # Main response
+
+    # Handle different response formats
+    if not isinstance(response, dict):
+        logger.warning(f"Unexpected response type: {type(response)}, value: {response}")
+        response = {'openai_response': str(response)}
+
+    # Main response - convert Markdown to Slack format
     response_text = response.get('openai_response', response.get('response', ''))
+    response_text = convert_markdown_to_slack(response_text)
     blocks.append({
         "type": "section",
         "text": {"type": "mrkdwn", "text": response_text}
     })
-    
-    # Citations if available
+
+    # Citations if available - append directly to the response
     citations = response.get('citations', [])
     if citations and Config.SHOW_CITATIONS:
-        citation_text = "\n*Sources:*\n"
-        for i, citation in enumerate(citations[:5], 1):  # Limit to 5 citations
-            citation_text += f"{i}. <{citation.get('url', '#')}|{citation.get('title', 'Source')}>\n"
-        
+        # Check if citations are IDs (integers) or objects
+        if citations and isinstance(citations[0], int):
+            # Citations are IDs - fetch details from API
+            citation_text = "*📚 Sources:*\n"
+            project_id = agent_id or Config.CUSTOMGPT_PROJECT_ID
+
+            for i, citation_id in enumerate(citations[:5], 1):
+                try:
+                    citation_data = await customgpt_client.get_citations(project_id, str(citation_id))
+                    url = citation_data.get('url', '#')
+                    title = citation_data.get('title', 'Source')
+                    citation_text += f"  {i}. <{url}|{title}>\n"
+                except Exception as e:
+                    logger.warning(f"Failed to fetch citation {citation_id}: {e}")
+                    citation_text += f"  {i}. Source {citation_id}\n"
+        else:
+            # Citations are already objects with url/title
+            citation_text = "*📚 Sources:*\n"
+            for i, citation in enumerate(citations[:5], 1):
+                if isinstance(citation, dict):
+                    citation_text += f"  {i}. <{citation.get('url', '#')}|{citation.get('title', 'Source')}>\n"
+
         blocks.append({
-            "type": "section",
-            "text": {"type": "mrkdwn", "text": citation_text}
+            "type": "context",
+            "elements": [{"type": "mrkdwn", "text": citation_text}]
         })
-    
-    # Add feedback buttons
+
+    # Add feedback buttons only
     blocks.append({
         "type": "actions",
         "elements": [
@@ -97,12 +157,6 @@ async def format_response_with_citations(response: Dict[str, Any]) -> Dict[str, 
                 "text": {"type": "plain_text", "text": "👎 Not Helpful"},
                 "action_id": "feedback_negative",
                 "value": str(response.get('id', ''))
-            },
-            {
-                "type": "button",
-                "text": {"type": "plain_text", "text": "📋 Show Sources"},
-                "action_id": "show_sources",
-                "value": json.dumps(citations[:5])
             }
         ]
     })
@@ -156,26 +210,32 @@ async def handle_app_mention(event: Dict[str, Any], client: AsyncWebClient, say)
         
         # Get agent ID and send query to CustomGPT
         agent_id = get_agent_id(channel_id, user_id)
-        conversation_id = conversation_manager.get_or_create_conversation(
-            user_id, channel_id, thread_ts
-        )
-        
+
+        # Get or create CustomGPT conversation
+        conv_key = f"{user_id}:{channel_id}:{thread_ts}"
+        conversation_id = agent_registry.get(f"conv:{conv_key}")
+
         try:
+            # If no existing conversation, let CustomGPT create one (pass None)
             response = await customgpt_client.send_message(
                 project_id=agent_id,
                 session_id=conversation_id,
                 message=query,
                 stream=False
             )
+
+            # Store the session_id from response for future messages
+            if isinstance(response, dict) and 'session_id' in response:
+                agent_registry[f"conv:{conv_key}"] = response['session_id']
             
             # Format and send response
-            formatted_response = await format_response_with_citations(response)
+            formatted_response = await format_response_with_citations(response, agent_id)
             await say(**formatted_response, thread_ts=thread_ts)
             
             # Mark thread participation for follow-ups
             if thread_ts:
                 conversation_manager.mark_thread_participation(channel_id, thread_ts)
-            
+
             # Log successful response
             await analytics.track_response(user_id, channel_id, agent_id, success=True)
             
@@ -415,36 +475,55 @@ async def handle_negative_feedback(ack, body, client):
     )
 
 @app.action("show_sources")
-async def handle_show_sources(ack, body, client):
+async def handle_show_sources(ack, body, client, logger):
     """Handle show sources button"""
     await ack()
-    
-    citations = json.loads(body['actions'][0]['value'])
-    
-    # Create a detailed sources message
-    sources_blocks = [
-        {
-            "type": "header",
-            "text": {"type": "plain_text", "text": "📚 Sources"}
-        }
-    ]
-    
-    for i, citation in enumerate(citations, 1):
-        sources_blocks.append({
-            "type": "section",
-            "text": {
-                "type": "mrkdwn",
-                "text": f"*{i}. {citation.get('title', 'Source')}*\n{citation.get('description', '')}\n<{citation.get('url', '#')}|View Source>"
+    logger.info(f"=== SHOW SOURCES ACTION TRIGGERED ===")
+    logger.info(f"User: {body.get('user', {}).get('id')}")
+    logger.info(f"Action value: {body.get('actions', [{}])[0].get('value', 'NO VALUE')}")
+
+    try:
+        data = json.loads(body['actions'][0]['value'])
+        citations = data.get('citations', [])
+
+        # Create a detailed sources message
+        sources_blocks = [
+            {
+                "type": "header",
+                "text": {"type": "plain_text", "text": "📚 Sources"}
             }
-        })
-    
-    # Send as ephemeral message
-    await client.chat_postEphemeral(
-        channel=body['channel']['id'],
-        user=body['user']['id'],
-        blocks=sources_blocks,
-        text="Sources"
-    )
+        ]
+
+        if citations:
+            # Check if citations are IDs or objects
+            if isinstance(citations[0], int):
+                sources_blocks.append({
+                    "type": "section",
+                    "text": {
+                        "type": "mrkdwn",
+                        "text": f"This response used {len(citations)} source(s) from the knowledge base.\n\n_Citation IDs: {', '.join(map(str, citations))}_"
+                    }
+                })
+            else:
+                for i, citation in enumerate(citations, 1):
+                    if isinstance(citation, dict):
+                        sources_blocks.append({
+                            "type": "section",
+                            "text": {
+                                "type": "mrkdwn",
+                                "text": f"*{i}. {citation.get('title', 'Source')}*\n{citation.get('description', '')}\n<{citation.get('url', '#')}|View Source>"
+                            }
+                        })
+
+        # Send as ephemeral message
+        await client.chat_postEphemeral(
+            channel=body['channel']['id'],
+            user=body['user']['id'],
+            blocks=sources_blocks,
+            text="Sources"
+        )
+    except Exception as e:
+        logger.error(f"Error showing sources: {str(e)}")
 
 @app.action(re.compile("ask_question_.*"))
 async def handle_ask_question(ack, body, say):
@@ -502,7 +581,7 @@ async def main():
     try:
         # Initialize bot
         await initialize_bot()
-        
+
         # Start the bot
         if Config.SLACK_APP_TOKEN:
             # Socket Mode (for development)
@@ -510,7 +589,14 @@ async def main():
             await handler.start_async()
         else:
             # HTTP Mode (for production)
-            await app.start(port=int(os.environ.get("PORT", 3000)))
+            from aiohttp import web
+            runner = web.AppRunner(app.server(port=int(os.environ.get("PORT", 3000))).web_app)
+            await runner.setup()
+            site = web.TCPSite(runner, "0.0.0.0", int(os.environ.get("PORT", 3000)))
+            await site.start()
+            logger.info(f"Bot is running on port {os.environ.get('PORT', 3000)}")
+            # Keep the server running
+            await asyncio.Event().wait()
     except Exception as e:
         logger.error(f"Failed to start bot: {str(e)}")
         raise

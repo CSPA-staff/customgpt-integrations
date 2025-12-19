@@ -35,9 +35,13 @@ class Analytics:
             'active_users': set(),
             'active_channels': set()
         }
-        
-        # Start periodic flush
-        if self.enabled:
+
+        self._flush_task_started = False
+
+    async def _ensure_flush_task_started(self):
+        """Start periodic flush task if not already running"""
+        if self.enabled and not self._flush_task_started:
+            self._flush_task_started = True
             asyncio.create_task(self._periodic_flush())
     
     async def track_query(self, user_id: str, channel_id: str, query: str, agent_id: Optional[str] = None):
@@ -214,8 +218,9 @@ class Analytics:
     
     async def _add_event(self, event: Dict[str, Any]):
         """Add event to buffer"""
+        await self._ensure_flush_task_started()
         self.buffer.append(event)
-        
+
         # Flush if buffer is full
         if len(self.buffer) >= self.buffer_size:
             await self._flush_events()

@@ -249,24 +249,62 @@ class CustomGPTClient:
     async def get_agent_info(self) -> Optional[Dict]:
         """Get information about the current agent"""
         await self.ensure_session()
-        
+
         try:
             url = f"{self.api_url}/api/v1/projects/{self.project_id}"
-            
+
             async with self.session.get(url, headers=self.headers) as response:
                 if response.status == 200:
                     data = await response.json()
                     return data.get('data', {})
                 else:
                     error_text = await response.text()
-                    logger.error("agent_info_failed", 
-                               status=response.status, 
+                    logger.error("agent_info_failed",
+                               status=response.status,
                                error=error_text)
                     return None
-                    
+
         except Exception as e:
             logger.error("agent_info_error", error=str(e))
             return None
+
+    async def get_citation(self, citation_id: int) -> Optional[Dict]:
+        """Get Open Graph data for a citation by its ID"""
+        await self.ensure_session()
+
+        try:
+            url = f"{self.api_url}/api/v1/projects/{self.project_id}/citations/{citation_id}"
+
+            async with self.session.get(url, headers=self.headers) as response:
+                if response.status == 200:
+                    data = await response.json()
+                    return data.get('data', {})
+                else:
+                    error_text = await response.text()
+                    logger.error("citation_fetch_failed",
+                               status=response.status,
+                               citation_id=citation_id,
+                               error=error_text)
+                    return None
+
+        except Exception as e:
+            logger.error("citation_fetch_error", error=str(e), citation_id=citation_id)
+            return None
+
+    async def get_citations(self, citation_ids: List[int]) -> List[Dict]:
+        """Get Open Graph data for multiple citations"""
+        if not citation_ids:
+            return []
+
+        tasks = [self.get_citation(cid) for cid in citation_ids]
+        results = await asyncio.gather(*tasks, return_exceptions=True)
+
+        citations = []
+        for result in results:
+            if isinstance(result, dict) and result:
+                citations.append(result)
+
+        return citations
     
     async def close(self):
         """Close the aiohttp session"""

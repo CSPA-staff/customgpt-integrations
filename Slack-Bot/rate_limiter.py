@@ -25,9 +25,13 @@ class RateLimiter:
     def __init__(self):
         self.local_storage: Dict[str, list] = defaultdict(list)
         self.redis_client: Optional[redis.Redis] = None
-        
-        if REDIS_AVAILABLE and Config.REDIS_URL:
-            asyncio.create_task(self._init_redis())
+        self._redis_initialized = False
+
+    async def _ensure_redis_initialized(self):
+        """Ensure Redis is initialized (lazy initialization)"""
+        if not self._redis_initialized and REDIS_AVAILABLE and Config.REDIS_URL:
+            await self._init_redis()
+            self._redis_initialized = True
     
     async def _init_redis(self):
         """Initialize Redis connection"""
@@ -46,10 +50,11 @@ class RateLimiter:
     async def check_rate_limit(self, user_id: str, channel_id: str) -> bool:
         """
         Check if a user/channel has exceeded rate limits
-        
+
         Returns:
             bool: True if request is allowed, False if rate limited
         """
+        await self._ensure_redis_initialized()
         current_time = time.time()
         
         # Check user rate limit
