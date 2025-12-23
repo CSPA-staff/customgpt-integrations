@@ -47,10 +47,9 @@ const ProductPreviewTabs = ({ citations }: ProductPreviewTabsProps) => {
   useEffect(() => {
     const checkMode = () => {
       setIsMobile(window.innerWidth < MOBILE_BREAKPOINT);
-      // Check if we're inside a floating panel or compact mode
-      const isCompact = !!document.querySelector('[data-compact-mode="true"]') ||
-                        !!document.querySelector('.widget-floating-panel');
-      setIsFloating(isCompact);
+      // Check if we're inside a floating panel (only true floating panel, not just compact mode on desktop)
+      const isInFloatingPanel = !!document.querySelector('.widget-floating-panel');
+      setIsFloating(isInFloatingPanel);
     };
 
     // Initial check
@@ -59,9 +58,9 @@ const ProductPreviewTabs = ({ citations }: ProductPreviewTabsProps) => {
     // Listen for resize
     window.addEventListener('resize', checkMode);
 
-    // Also observe DOM changes for compact mode attribute changes
+    // Also observe DOM changes for floating panel class changes
     const observer = new MutationObserver(checkMode);
-    observer.observe(document.body, { attributes: true, subtree: true, attributeFilter: ['data-compact-mode', 'class'] });
+    observer.observe(document.body, { attributes: true, subtree: true, attributeFilter: ['class'] });
 
     return () => {
       window.removeEventListener('resize', checkMode);
@@ -69,8 +68,13 @@ const ProductPreviewTabs = ({ citations }: ProductPreviewTabsProps) => {
     };
   }, []);
 
-  // Get current page size based on mode: floating > mobile > desktop
-  const gridPageSize = isFloating ? GRID_PAGE_SIZE_FLOATING : (isMobile ? GRID_PAGE_SIZE_MOBILE : GRID_PAGE_SIZE_DESKTOP);
+  // Get current page size based on mode:
+  // - Floating panel: Always 2 columns (regardless of screen size)
+  // - Desktop (≥768px): 4 columns
+  // - Mobile: 3 columns
+  const gridPageSize = isFloating
+    ? GRID_PAGE_SIZE_FLOATING
+    : (isMobile ? GRID_PAGE_SIZE_MOBILE : GRID_PAGE_SIZE_DESKTOP);
 
   // Fetch all product data on mount
   useEffect(() => {

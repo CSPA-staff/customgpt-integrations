@@ -517,19 +517,26 @@
 
 /* ============================================
    PRODUCT PREVIEW COMPACT MODE STYLES
-   Force single-column layout and mobile styles for product cards
+   Force mobile-friendly layouts for product cards in compact/floating mode
    ============================================ */
 
-/* Force 2-column grid for product cards in floating mode */
-[data-compact-mode="true"] .demo-products-grid,
-.widget-floating-panel .demo-products-grid {
+/* Option A (horizontal): Desktop gets 4 columns in non-floating mode */
+@media (min-width: 768px) {
+  [data-compact-mode="true"]:not(.widget-floating-panel) .demo-products-grid.layout-horizontal {
+    grid-template-columns: repeat(4, 1fr) !important;
+    gap: 10px !important;
+  }
+}
+
+/* Floating panel ALWAYS gets 2 columns (higher specificity to override desktop) */
+.widget-floating-panel .demo-products-grid,
+.widget-floating-panel .demo-products-grid.layout-horizontal {
   display: grid !important;
   grid-template-columns: repeat(2, 1fr) !important;
   gap: var(--space-2, 8px) !important;
 }
 
-/* Option C (vertical) stays single column */
-[data-compact-mode="true"] .demo-products-grid.layout-vertical,
+/* Option C (vertical) stays single column in floating mode */
 .widget-floating-panel .demo-products-grid.layout-vertical {
   grid-template-columns: 1fr !important;
 }

@@ -22,6 +22,10 @@ export const useMicVADWrapper = (onLoadingChange: (loading: boolean) => void) =>
         },
         positiveSpeechThreshold: AI_CONFIG.vadPositiveSpeechThreshold,
         negativeSpeechThreshold: AI_CONFIG.vadNegativeSpeechThreshold,
+        // Configure asset paths for Vercel deployment
+        // These paths point to the public directory where ONNX models and WASM files are served
+        baseAssetPath: '/',
+        onnxWASMBasePath: '/',
         // Configure ONNX runtime to load WASM files from public directory
         ortConfig: (ort) => {
             // Set WASM paths to public directory root
