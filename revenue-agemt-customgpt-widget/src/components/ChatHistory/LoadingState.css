@@ -1,0 +1,156 @@
+/**
+ * LoadingState Styles
+ *
+ * Skeleton screen with shimmer animation effect
+ * Includes Suspense loading fallback styles
+ */
+
+.chat-history-loading-state {
+  display: flex;
+  flex-direction: column;
+  gap: 0;
+}
+
+/* Suspense loading fallback */
+.conversation-list-loading {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  padding: 48px 24px;
+  gap: 16px;
+  color: var(--text-secondary);
+}
+
+.loading-spinner {
+  animation: spin 1s linear infinite;
+}
+
+.loading-spinner svg {
+  display: block;
+}
+
+.loading-text {
+  margin: 0;
+  font-size: 14px;
+  font-weight: 500;
+}
+
+@keyframes spin {
+  from {
+    transform: rotate(0deg);
+  }
+  to {
+    transform: rotate(360deg);
+  }
+}
+
+.skeleton-conversation-item {
+  display: flex;
+  gap: 12px;
+  padding: 16px;
+  height: 72px;
+  align-items: center;
+  border-bottom: 1px solid var(--border-secondary);
+  animation: fadeIn 0.3s ease-out;
+}
+
+.skeleton-avatar {
+  width: 36px;
+  height: 36px;
+  min-width: 36px;
+  border-radius: 50%;
+  background: linear-gradient(
+    90deg,
+    var(--bg-surface) 0%,
+    var(--bg-tertiary) 50%,
+    var(--bg-surface) 100%
+  );
+  background-size: 200% 100%;
+  animation: shimmer 1.5s infinite;
+}
+
+.skeleton-content {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  min-width: 0;
+}
+
+.skeleton-title {
+  width: 60%;
+  height: 14px;
+  border-radius: 4px;
+  background: linear-gradient(
+    90deg,
+    var(--bg-surface) 0%,
+    var(--bg-tertiary) 50%,
+    var(--bg-surface) 100%
+  );
+  background-size: 200% 100%;
+  animation: shimmer 1.5s infinite;
+  animation-delay: 0.1s;
+}
+
+.skeleton-preview {
+  width: 85%;
+  height: 12px;
+  border-radius: 4px;
+  background: linear-gradient(
+    90deg,
+    var(--bg-surface) 0%,
+    var(--bg-tertiary) 50%,
+    var(--bg-surface) 100%
+  );
+  background-size: 200% 100%;
+  animation: shimmer 1.5s infinite;
+  animation-delay: 0.2s;
+}
+
+.skeleton-timestamp {
+  width: 40%;
+  height: 10px;
+  border-radius: 4px;
+  background: linear-gradient(
+    90deg,
+    var(--bg-surface) 0%,
+    var(--bg-tertiary) 50%,
+    var(--bg-surface) 100%
+  );
+  background-size: 200% 100%;
+  animation: shimmer 1.5s infinite;
+  animation-delay: 0.3s;
+}
+
+@keyframes shimmer {
+  0% {
+    background-position: 200% 0;
+  }
+  100% {
+    background-position: -200% 0;
+  }
+}
+
+@keyframes fadeIn {
+  from {
+    opacity: 0;
+  }
+  to {
+    opacity: 1;
+  }
+}
+
+/* Mobile optimizations */
+@media (max-width: 480px) {
+  .skeleton-conversation-item {
+    padding: 12px;
+    height: 64px;
+  }
+
+  .skeleton-avatar {
+    width: 32px;
+    height: 32px;
+    min-width: 32px;
+  }
+}

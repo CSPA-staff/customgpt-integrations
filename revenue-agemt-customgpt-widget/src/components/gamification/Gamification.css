@@ -1,0 +1,215 @@
+/* Gamification Components Styles */
+
+/* Container */
+.points-header-container {
+  position: relative;
+  display: inline-flex;
+}
+
+/* Icon Button - Matches WishlistPanel style */
+.points-header-button {
+  position: relative;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 36px;
+  height: 36px;
+  padding: 0;
+  background: transparent;
+  border: none;
+  border-radius: 50%;
+  cursor: pointer;
+  color: var(--text-secondary);
+  transition: all 0.2s ease;
+}
+
+.points-header-button:hover {
+  background: var(--bg-surface-hover);
+  color: var(--text-primary);
+}
+
+.points-header-button:active {
+  transform: scale(0.95);
+}
+
+.points-header-button:focus-visible {
+  outline: 2px solid var(--color-primary);
+  outline-offset: 2px;
+}
+
+/* Star Icon */
+.points-header-icon {
+  color: var(--text-primary);
+}
+
+/* Count Badge - Matches WishlistPanel badge style */
+.points-header-badge {
+  position: absolute;
+  top: 2px;
+  right: 2px;
+  min-width: 16px;
+  height: 16px;
+  padding: 0 4px;
+  background: var(--color-warning, #f59e0b);
+  color: var(--text-inverse);
+  font-size: 10px;
+  font-weight: 600;
+  line-height: 16px;
+  border-radius: 8px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  box-shadow: var(--shadow-sm);
+  pointer-events: none;
+}
+
+.points-panel {
+  background: var(--bg-primary);
+  border: 1px solid var(--border-primary);
+  border-radius: 0.5rem;
+  box-shadow: 0 25px 50px -12px rgba(0, 0, 0, 0.25);
+  width: 14rem;
+  overflow: hidden;
+}
+
+.points-panel-header {
+  background: var(--bg-surface);
+  border-bottom: 1px solid var(--border-primary);
+  padding: 0.375rem 0.5rem;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+}
+
+/* Compact header stats */
+.points-header-stats {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+}
+
+.points-total-inline {
+  font-weight: 600;
+  font-size: 0.8125rem;
+  color: var(--text-primary);
+}
+
+.points-streak-inline {
+  display: flex;
+  align-items: center;
+  gap: 2px;
+  font-size: 0.6875rem;
+  color: var(--text-secondary);
+  padding: 0.125rem 0.375rem;
+  background: var(--bg-tertiary);
+  border-radius: 0.25rem;
+}
+
+.points-streak-inline svg {
+  width: 12px;
+  height: 12px;
+  color: var(--color-warning, #f59e0b);
+}
+
+.points-panel-close {
+  color: var(--text-secondary);
+  transition: color 0.2s;
+  background: none;
+  border: none;
+  cursor: pointer;
+  font-size: 1rem;
+  padding: 0;
+  line-height: 1;
+}
+
+.points-panel-close:hover {
+  color: var(--text-primary);
+}
+
+.points-panel-content {
+  padding: 0.5rem;
+}
+
+/* Compact 2-column grid for today's stats */
+.points-today-grid {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 0.375rem;
+}
+
+.points-stat-item {
+  display: flex;
+  flex-direction: column;
+  padding: 0.25rem 0.375rem;
+  background: var(--bg-surface);
+  border-radius: 0.25rem;
+  border: 1px solid var(--border-primary);
+}
+
+.points-stat-label {
+  font-size: 0.625rem;
+  color: var(--text-tertiary);
+  text-transform: uppercase;
+  letter-spacing: 0.025em;
+}
+
+.points-stat-value {
+  font-size: 0.6875rem;
+  font-weight: 500;
+  color: var(--text-primary);
+}
+
+.points-today-total {
+  margin-top: 0.375rem;
+  padding-top: 0.375rem;
+  border-top: 1px solid var(--border-primary);
+  font-size: 0.6875rem;
+  font-weight: 600;
+  color: var(--text-primary);
+  text-align: center;
+}
+
+.points-no-activity {
+  font-style: italic;
+  font-size: 0.6875rem;
+  color: var(--text-tertiary);
+  text-align: center;
+  padding: 0.5rem 0;
+}
+
+.points-toast {
+  position: fixed;
+  top: 4rem;
+  right: 1.5rem;
+  z-index: 9999;
+  background: var(--bg-surface);
+  border: 1px solid var(--border-primary);
+  color: var(--color-warning, #f59e0b);
+  border-radius: 1rem;
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.08);
+  padding: 0.2rem 0.5rem;
+  display: flex;
+  align-items: center;
+  gap: 0.2rem;
+  opacity: 0.9;
+}
+
+.points-toast-value {
+  font-size: 0.625rem;
+  font-weight: 600;
+}
+
+/* Backdrop */
+.points-backdrop {
+  position: fixed;
+  inset: 0;
+  z-index: 40;
+}
+
+.points-panel-wrapper {
+  position: absolute;
+  top: 100%;
+  right: 0;
+  margin-top: 0.5rem;
+  z-index: 60;
+}

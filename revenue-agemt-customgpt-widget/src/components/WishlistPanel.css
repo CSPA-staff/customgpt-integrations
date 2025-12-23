@@ -1,0 +1,206 @@
+/**
+ * WishlistPanel Styles - Header-Based Subtle Design
+ * Minimal, icon-based with dropdown panel
+ */
+
+/* Container */
+.wishlist-header-container {
+  position: relative;
+  display: inline-flex;
+}
+
+/* Icon Button - Subtle & Minimal */
+.wishlist-header-button {
+  position: relative;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 36px;
+  height: 36px;
+  padding: 0;
+  background: transparent;
+  border: none;
+  border-radius: 50%;
+  cursor: pointer;
+  color: var(--text-secondary);
+  transition: all 0.2s ease;
+}
+
+.wishlist-header-button:hover {
+  background: var(--bg-surface-hover);
+  color: var(--text-primary);
+}
+
+.wishlist-header-button:active {
+  transform: scale(0.95);
+}
+
+.wishlist-header-button:focus-visible {
+  outline: 2px solid var(--color-primary);
+  outline-offset: 2px;
+}
+
+/* Heart Icon */
+.wishlist-header-icon {
+  color: var(--text-primary);
+  filter: var(--shadow-sm);
+}
+
+/* Count Badge - Small & Subtle */
+.wishlist-header-badge {
+  position: absolute;
+  top: 2px;
+  right: 2px;
+  min-width: 16px;
+  height: 16px;
+  padding: 0 4px;
+  background: var(--color-error);
+  color: var(--text-inverse);
+  font-size: 10px;
+  font-weight: 600;
+  line-height: 16px;
+  border-radius: 8px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  box-shadow: var(--shadow-sm);
+  pointer-events: none;
+}
+
+/* Dropdown Panel - Elegant & Spacious */
+.wishlist-dropdown-panel {
+  position: absolute;
+  top: calc(100% + 8px);
+  right: 0;
+  width: 360px;
+  max-height: 480px;
+  background: var(--bg-elevated);
+  border: 1px solid var(--border-primary);
+  border-radius: var(--radius-lg);
+  box-shadow: var(--shadow-xl);
+  display: flex;
+  flex-direction: column;
+  z-index: 1000;
+  animation: dropdownSlideIn 0.2s ease-out;
+  overflow: hidden;
+}
+
+@keyframes dropdownSlideIn {
+  from {
+    opacity: 0;
+    transform: translateY(-8px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+/* Dropdown Header */
+.wishlist-dropdown-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 16px 16px 12px;
+  border-bottom: 1px solid var(--border-primary);
+  background: var(--bg-surface);
+}
+
+.wishlist-dropdown-title {
+  margin: 0;
+  font-size: 14px;
+  font-weight: 600;
+  color: var(--text-primary);
+}
+
+.wishlist-dropdown-clear {
+  padding: 4px 10px;
+  background: transparent;
+  border: 1px solid var(--border-primary);
+  border-radius: 6px;
+  font-size: 12px;
+  font-weight: 500;
+  color: var(--text-secondary);
+  cursor: pointer;
+  transition: all 0.2s ease;
+}
+
+.wishlist-dropdown-clear:hover {
+  background: var(--color-error-light);
+  border-color: var(--color-error);
+  color: var(--color-error);
+}
+
+.wishlist-dropdown-clear:active {
+  transform: scale(0.98);
+}
+
+/* Dropdown Content - Scrollable Grid */
+.wishlist-dropdown-content {
+  padding: 12px;
+  overflow-y: auto;
+  overflow-x: hidden;
+  max-height: 400px;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+/* Custom Scrollbar */
+.wishlist-dropdown-content::-webkit-scrollbar {
+  width: 6px;
+}
+
+.wishlist-dropdown-content::-webkit-scrollbar-track {
+  background: transparent;
+}
+
+.wishlist-dropdown-content::-webkit-scrollbar-thumb {
+  background: var(--border-primary);
+  border-radius: 3px;
+}
+
+.wishlist-dropdown-content::-webkit-scrollbar-thumb:hover {
+  background: var(--text-tertiary);
+}
+
+/* Dark Mode Support - Handled automatically by design tokens */
+
+/* Mobile Optimizations */
+@media (max-width: 640px) {
+  .wishlist-dropdown-panel {
+    width: 320px;
+    right: -12px; /* Align with edge on mobile */
+  }
+
+  .wishlist-dropdown-header {
+    padding: 12px;
+  }
+
+  .wishlist-dropdown-content {
+    padding: 8px;
+    max-height: 360px;
+  }
+}
+
+/* Very Small Screens */
+@media (max-width: 380px) {
+  .wishlist-dropdown-panel {
+    width: calc(100vw - 32px);
+    right: -16px;
+  }
+}
+
+/* Light Theme Overrides - Handled automatically by design tokens */
+
+/* Integration with ChatContainer header */
+.chat-header-actions {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin-left: auto;
+}
+
+.chat-header-actions .wishlist-header-container {
+  margin-right: 0;
+}

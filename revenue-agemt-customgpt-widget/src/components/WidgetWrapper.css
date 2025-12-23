@@ -1,0 +1,692 @@
+/**
+ * WidgetWrapper.css - Widget Display Mode Styles
+ * Handles embed mode and floating chatbot panel styles
+ */
+
+@import '../styles/design-tokens.css';
+
+/* ============================================
+   EMBED MODE CONTAINER
+   ============================================ */
+
+.widget-embed-container {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  min-height: 100vh;
+  padding: 40px;
+  background: linear-gradient(135deg, #f5f7fa 0%, #e4e8ec 100%);
+  box-sizing: border-box;
+}
+
+.dark-theme .widget-embed-container {
+  background: linear-gradient(135deg, #1a1a1a 0%, #0d0d0d 100%);
+}
+
+.widget-embed-panel {
+  width: var(--widget-width, 420px);
+  height: var(--widget-height, 600px);
+  max-height: var(--widget-max-height, 80vh);
+  max-width: 100%;
+  border-radius: var(--radius-2xl);
+  overflow: hidden;
+  box-shadow:
+    0 25px 50px -12px rgba(0, 0, 0, 0.15),
+    0 12px 24px -8px rgba(0, 0, 0, 0.1),
+    0 0 0 1px rgba(0, 0, 0, 0.05);
+  background: var(--bg-primary);
+  display: flex;
+  flex-direction: column;
+}
+
+.dark-theme .widget-embed-panel {
+  box-shadow:
+    0 25px 50px -12px rgba(0, 0, 0, 0.5),
+    0 12px 24px -8px rgba(0, 0, 0, 0.4),
+    0 0 0 1px rgba(255, 255, 255, 0.05);
+}
+
+/* ============================================
+   FLOATING CHATBOT PANEL
+   Styled like a typical chatbot widget - narrow and tall
+   Uses container queries for responsive inner content
+   ============================================ */
+
+.widget-floating-panel {
+  position: fixed;
+  width: var(--widget-width, 380px);
+  height: var(--widget-height, 550px);
+  max-height: var(--widget-max-height, 85vh);
+  max-width: calc(100vw - 48px);
+  border-radius: 16px;
+  overflow: visible;
+  box-shadow:
+    0 8px 32px rgba(0, 0, 0, 0.12),
+    0 4px 16px rgba(0, 0, 0, 0.08),
+    0 0 0 1px rgba(0, 0, 0, 0.05);
+  background: var(--bg-primary);
+  z-index: 9998;
+  display: flex;
+  flex-direction: column;
+  transition: opacity 0.25s ease, transform 0.25s cubic-bezier(0.4, 0, 0.2, 1);
+  /* Enable container queries for child elements */
+  container-type: inline-size;
+  container-name: floating-chat;
+}
+
+/* Position variants - positioned above the floating button */
+.widget-floating-panel.bottom-right {
+  bottom: 96px;
+  right: 24px;
+  transform-origin: bottom right;
+}
+
+.widget-floating-panel.bottom-left {
+  bottom: 96px;
+  left: 24px;
+  transform-origin: bottom left;
+}
+
+/* Closed state - scales down toward the button */
+.widget-floating-panel.closed {
+  opacity: 0;
+  transform: scale(0.95) translateY(10px);
+  pointer-events: none;
+  visibility: hidden;
+}
+
+/* Open state */
+.widget-floating-panel.open {
+  opacity: 1;
+  transform: scale(1) translateY(0);
+  pointer-events: auto;
+  visibility: visible;
+}
+
+/* Dark theme */
+.dark-theme .widget-floating-panel {
+  box-shadow:
+    0 8px 32px rgba(0, 0, 0, 0.4),
+    0 4px 16px rgba(0, 0, 0, 0.3),
+    0 0 0 1px rgba(255, 255, 255, 0.08);
+}
+
+/* ============================================
+   CHAT LAYOUT ADJUSTMENTS IN WIDGET MODE
+   ============================================ */
+
+/* Fix layout height to use container height instead of viewport height */
+.widget-embed-panel .chat-layout,
+.widget-floating-panel .chat-layout {
+  height: 100% !important;
+}
+
+/* Fix sidebar height to match container, not viewport */
+.widget-embed-panel .chat-history-sidebar.desktop,
+.widget-floating-panel .chat-history-sidebar.desktop {
+  height: 100% !important;
+}
+
+/* ============================================
+   CHAT CONTAINER ADJUSTMENTS IN WIDGET MODE
+   ============================================ */
+
+.widget-embed-panel .chat-container,
+.widget-floating-panel .chat-container {
+  height: 100%;
+  border-radius: inherit;
+  overflow: hidden;
+}
+
+.widget-embed-panel .chat-header,
+.widget-floating-panel .chat-header {
+  border-radius: var(--radius-2xl) var(--radius-2xl) 0 0;
+  overflow: visible;
+}
+
+/* Allow wishlist dropdown to properly display in floating panel */
+.widget-floating-panel .wishlist-header-container,
+[data-compact-mode="true"] .wishlist-header-container {
+  overflow: visible;
+}
+
+.widget-floating-panel .wishlist-dropdown-panel,
+[data-compact-mode="true"] .wishlist-dropdown-panel {
+  /* Use fixed positioning to escape overflow containment */
+  position: fixed !important;
+  /* Constrain width to fit within floating panel */
+  width: 320px !important;
+  max-width: calc(100vw - 48px) !important;
+  /* Position from right edge of viewport (matching panel position) */
+  right: 32px !important;
+  left: auto !important;
+  /* Ensure dropdown appears above other elements */
+  z-index: 10000 !important;
+  /* Constrain height for compact view */
+  max-height: 400px !important;
+}
+
+/* Left-positioned floating panel */
+.widget-floating-panel.bottom-left .wishlist-dropdown-panel,
+[data-compact-mode="true"].bottom-left .wishlist-dropdown-panel {
+  right: auto !important;
+  left: 32px !important;
+}
+
+.widget-floating-panel .wishlist-dropdown-content,
+[data-compact-mode="true"] .wishlist-dropdown-content {
+  max-height: 320px !important;
+}
+
+/* ============================================
+   VOICE MODE ADJUSTMENTS IN WIDGET MODE
+   ============================================ */
+
+.widget-embed-panel .voice-mode-container,
+.widget-floating-panel .voice-mode-container {
+  height: 100%;
+  border-radius: inherit;
+}
+
+/* ============================================
+   RESPONSIVE ADJUSTMENTS
+   ============================================ */
+
+/* Tablet */
+@media (max-width: 768px) {
+  .widget-embed-container {
+    padding: 24px;
+  }
+
+  .widget-embed-panel {
+    width: 100%;
+    max-width: 600px;
+    height: calc(100vh - 48px);
+    max-height: none;
+  }
+
+  .widget-floating-panel {
+    width: calc(100vw - 48px);
+    max-width: 380px;
+    height: var(--widget-height, 500px);
+    max-height: calc(100vh - 120px);
+  }
+
+  .widget-floating-panel.bottom-right {
+    right: 16px;
+    bottom: 88px;
+  }
+
+  .widget-floating-panel.bottom-left {
+    left: 16px;
+    bottom: 88px;
+  }
+}
+
+/* Mobile */
+@media (max-width: 480px) {
+  .widget-embed-container {
+    padding: 16px;
+  }
+
+  .widget-embed-panel {
+    height: calc(100vh - 32px);
+    border-radius: var(--radius-xl);
+  }
+
+  .widget-floating-panel {
+    width: calc(100vw - 32px);
+    max-width: none;
+    height: calc(100vh - 100px);
+    max-height: none;
+    border-radius: 12px;
+    bottom: 80px;
+  }
+
+  .widget-floating-panel.bottom-right {
+    right: 16px;
+    left: 16px;
+    bottom: 80px;
+  }
+
+  .widget-floating-panel.bottom-left {
+    left: 16px;
+    right: 16px;
+    bottom: 80px;
+  }
+}
+
+/* ============================================
+   COMPACT MODE STYLES FOR FLOATING PANEL
+   These apply mobile-like styles when the panel
+   is in compact/floating mode, regardless of viewport size
+   ============================================ */
+
+/* Force mobile-like layout inside floating panel using data attribute */
+/* This works in all browsers without container query support */
+[data-compact-mode="true"] .chat-layout .desktop-only,
+.widget-floating-panel .chat-layout .desktop-only {
+  display: none !important;
+}
+
+[data-compact-mode="true"] .chat-layout .mobile-only,
+.widget-floating-panel .chat-layout .mobile-only {
+  display: flex !important;
+}
+
+[data-compact-mode="true"] .chat-layout .main-content,
+.widget-floating-panel .chat-layout .main-content {
+  width: 100% !important;
+}
+
+[data-compact-mode="true"] .chat-header,
+.widget-floating-panel .chat-header {
+  padding: var(--space-3, 12px) var(--space-4, 16px) !important;
+}
+
+[data-compact-mode="true"] .chat-header h1,
+.widget-floating-panel .chat-header h1 {
+  font-size: var(--text-xs, 12px) !important;
+}
+
+[data-compact-mode="true"] .chat-messages,
+.widget-floating-panel .chat-messages {
+  padding: var(--space-3, 12px) !important;
+  gap: var(--space-3, 12px) !important;
+}
+
+[data-compact-mode="true"] .message-avatar,
+.widget-floating-panel .message-avatar {
+  width: 24px !important;
+  height: 24px !important;
+  min-width: 24px !important;
+}
+
+[data-compact-mode="true"] .message-avatar svg,
+[data-compact-mode="true"] .message-avatar img,
+.widget-floating-panel .message-avatar svg,
+.widget-floating-panel .message-avatar img {
+  width: 24px !important;
+  height: 24px !important;
+}
+
+[data-compact-mode="true"] .message-wrapper,
+.widget-floating-panel .message-wrapper {
+  max-width: calc(100% - 32px) !important;
+}
+
+[data-compact-mode="true"] .message-content,
+.widget-floating-panel .message-content {
+  padding: var(--space-2, 8px) var(--space-3, 12px) !important;
+  padding-bottom: var(--space-5, 20px) !important;
+  font-size: var(--text-sm, 14px) !important;
+}
+
+[data-compact-mode="true"] .chat-input-container,
+.widget-floating-panel .chat-input-container {
+  padding: var(--space-3, 12px) !important;
+  gap: var(--space-2, 8px) !important;
+}
+
+[data-compact-mode="true"] .input-wrapper,
+.widget-floating-panel .input-wrapper {
+  min-height: 40px !important;
+  padding: var(--space-1, 4px) var(--space-3, 12px) !important;
+}
+
+[data-compact-mode="true"] .mic-button-inline,
+.widget-floating-panel .mic-button-inline {
+  width: 28px !important;
+  height: 28px !important;
+  min-width: 28px !important;
+}
+
+[data-compact-mode="true"] .send-button,
+.widget-floating-panel .send-button {
+  width: 36px !important;
+  height: 36px !important;
+  min-width: 36px !important;
+}
+
+[data-compact-mode="true"] .voice-mode-button-minimal,
+.widget-floating-panel .voice-mode-button-minimal {
+  width: 36px !important;
+  height: 36px !important;
+}
+
+[data-compact-mode="true"] .empty-state,
+.widget-floating-panel .empty-state {
+  padding: var(--space-5, 20px) !important;
+}
+
+[data-compact-mode="true"] .empty-state-avatar,
+.widget-floating-panel .empty-state-avatar {
+  width: 56px !important;
+  height: 56px !important;
+}
+
+[data-compact-mode="true"] .empty-state h2,
+.widget-floating-panel .empty-state h2 {
+  font-size: var(--text-lg, 18px) !important;
+}
+
+[data-compact-mode="true"] .starter-questions,
+.widget-floating-panel .starter-questions {
+  max-width: 100% !important;
+}
+
+[data-compact-mode="true"] .starter-questions-grid,
+.widget-floating-panel .starter-questions-grid {
+  display: flex !important;
+  flex-direction: column !important;
+  gap: var(--space-2, 8px) !important;
+}
+
+[data-compact-mode="true"] .citations-list,
+.widget-floating-panel .citations-list {
+  flex-direction: column !important;
+}
+
+[data-compact-mode="true"] .citation-card,
+.widget-floating-panel .citation-card {
+  flex: 1 1 100% !important;
+}
+
+/* ============================================
+   CONTAINER QUERY STYLES (Progressive Enhancement)
+   These apply as a backup for browsers that support container queries
+   ============================================ */
+
+/* Force mobile-like layout inside floating panel */
+@container floating-chat (max-width: 500px) {
+  /* Hide desktop sidebar - show mobile drawer instead */
+  .chat-layout .desktop-only {
+    display: none !important;
+  }
+
+  .chat-layout .mobile-only {
+    display: flex !important;
+  }
+
+  /* Full width main content */
+  .chat-layout .main-content {
+    width: 100% !important;
+  }
+
+  /* Compact header */
+  .chat-header {
+    padding: var(--space-3, 12px) var(--space-4, 16px) !important;
+  }
+
+  .chat-header h1 {
+    font-size: var(--text-xs, 12px) !important;
+  }
+
+  /* Compact messages area */
+  .chat-messages {
+    padding: var(--space-3, 12px) !important;
+    gap: var(--space-3, 12px) !important;
+  }
+
+  /* Smaller avatars */
+  .message-avatar {
+    width: 24px !important;
+    height: 24px !important;
+    min-width: 24px !important;
+  }
+
+  .message-avatar svg,
+  .message-avatar img {
+    width: 24px !important;
+    height: 24px !important;
+  }
+
+  /* Compact message bubbles */
+  .message-wrapper {
+    max-width: calc(100% - 32px) !important;
+  }
+
+  .message-content {
+    padding: var(--space-2, 8px) var(--space-3, 12px) !important;
+    padding-bottom: var(--space-5, 20px) !important;
+    font-size: var(--text-sm, 14px) !important;
+  }
+
+  /* Compact input area */
+  .chat-input-container {
+    padding: var(--space-3, 12px) !important;
+    gap: var(--space-2, 8px) !important;
+  }
+
+  .input-wrapper {
+    min-height: 40px !important;
+    padding: var(--space-1, 4px) var(--space-3, 12px) !important;
+  }
+
+  .mic-button-inline {
+    width: 28px !important;
+    height: 28px !important;
+    min-width: 28px !important;
+  }
+
+  .send-button {
+    width: 36px !important;
+    height: 36px !important;
+    min-width: 36px !important;
+  }
+
+  .voice-mode-button-minimal {
+    width: 36px !important;
+    height: 36px !important;
+  }
+
+  /* Compact empty state */
+  .empty-state {
+    padding: var(--space-5, 20px) !important;
+  }
+
+  .empty-state-avatar {
+    width: 56px !important;
+    height: 56px !important;
+  }
+
+  .empty-state h2 {
+    font-size: var(--text-lg, 18px) !important;
+  }
+
+  .starter-questions {
+    max-width: 100% !important;
+  }
+
+  /* Single column starter questions */
+  .starter-questions-grid {
+    display: flex !important;
+    flex-direction: column !important;
+    gap: var(--space-2, 8px) !important;
+  }
+
+  /* Citations in single column */
+  .citations-list {
+    flex-direction: column !important;
+  }
+
+  .citation-card {
+    flex: 1 1 100% !important;
+  }
+}
+
+/* ============================================
+   PRODUCT PREVIEW COMPACT MODE STYLES
+   Force single-column layout and mobile styles for product cards
+   ============================================ */
+
+/* Force 2-column grid for product cards in floating mode */
+[data-compact-mode="true"] .demo-products-grid,
+.widget-floating-panel .demo-products-grid {
+  display: grid !important;
+  grid-template-columns: repeat(2, 1fr) !important;
+  gap: var(--space-2, 8px) !important;
+}
+
+/* Option C (vertical) stays single column */
+[data-compact-mode="true"] .demo-products-grid.layout-vertical,
+.widget-floating-panel .demo-products-grid.layout-vertical {
+  grid-template-columns: 1fr !important;
+}
+
+/* Horizontal card - stack vertically on compact mode */
+[data-compact-mode="true"] .product-card-horizontal,
+.widget-floating-panel .product-card-horizontal {
+  flex-direction: column !important;
+}
+
+[data-compact-mode="true"] .product-card-image,
+.widget-floating-panel .product-card-image {
+  width: 100% !important;
+  height: 120px !important;
+}
+
+/* Carousel adjustments */
+[data-compact-mode="true"] .carousel-image,
+.widget-floating-panel .carousel-image {
+  width: 100px !important;
+  height: 100px !important;
+}
+
+[data-compact-mode="true"] .carousel-nav,
+.widget-floating-panel .carousel-nav {
+  width: 28px !important;
+  height: 28px !important;
+}
+
+/* Tabs - allow horizontal scroll */
+[data-compact-mode="true"] .demo-tabs,
+.widget-floating-panel .demo-tabs {
+  overflow-x: auto !important;
+  -webkit-overflow-scrolling: touch !important;
+  flex-wrap: nowrap !important;
+}
+
+[data-compact-mode="true"] .demo-tab,
+.widget-floating-panel .demo-tab {
+  padding: var(--space-2, 8px) var(--space-2, 8px) !important;
+  font-size: 11px !important;
+}
+
+/* Product card content - ensure text doesn't wrap oddly */
+[data-compact-mode="true"] .product-card-content,
+.widget-floating-panel .product-card-content {
+  width: 100% !important;
+}
+
+[data-compact-mode="true"] .product-card-title,
+.widget-floating-panel .product-card-title {
+  word-wrap: break-word !important;
+  overflow-wrap: break-word !important;
+}
+
+[data-compact-mode="true"] .product-card-meta,
+.widget-floating-panel .product-card-meta {
+  flex-wrap: wrap !important;
+}
+
+/* Vertical mini cards */
+[data-compact-mode="true"] .product-mini-image,
+.widget-floating-panel .product-mini-image {
+  width: 50px !important;
+  height: 50px !important;
+}
+
+/* Carousel wrapper padding */
+[data-compact-mode="true"] .carousel-wrapper,
+.widget-floating-panel .carousel-wrapper {
+  padding: var(--space-2, 8px) !important;
+  gap: var(--space-1, 4px) !important;
+}
+
+/* Product preview tabs wrapper */
+[data-compact-mode="true"] .product-preview-tabs-wrapper,
+.widget-floating-panel .product-preview-tabs-wrapper {
+  margin: var(--space-2, 8px) 0 !important;
+}
+
+/* ============================================
+   MOBILE DRAWER COMPACT MODE STYLES
+   Ensure proper sizing for the sidebar drawer in floating panel
+   ============================================ */
+
+/* Mobile sidebar in floating panel - position relative to panel, not viewport */
+[data-compact-mode="true"] .chat-history-sidebar.mobile,
+.widget-floating-panel .chat-history-sidebar.mobile {
+  position: absolute !important;
+  height: 100% !important;
+  max-height: 100% !important;
+  top: 0 !important;
+  left: 0 !important;
+  width: 85% !important;
+  max-width: 280px !important;
+  z-index: 100 !important;
+}
+
+/* Overlay within floating panel */
+[data-compact-mode="true"] .chat-history-overlay,
+.widget-floating-panel .chat-history-overlay {
+  position: absolute !important;
+  z-index: 99 !important;
+}
+
+/* Mobile toggle button position within panel */
+[data-compact-mode="true"] .chat-history-mobile-toggle,
+.widget-floating-panel .chat-history-mobile-toggle {
+  position: absolute !important;
+  top: 10px !important;
+  left: 10px !important;
+  z-index: 50 !important;
+  width: 32px !important;
+  height: 32px !important;
+}
+
+/* Ensure theme toggle is visible at bottom of drawer */
+[data-compact-mode="true"] .theme-toggle-container,
+.widget-floating-panel .theme-toggle-container {
+  display: flex !important;
+  flex-shrink: 0 !important;
+  padding: var(--space-2, 8px) var(--space-3, 12px) !important;
+  margin-top: auto !important;
+  border-top: 1px solid var(--border-primary, #333) !important;
+  background: var(--bg-secondary, #1a1a1a) !important;
+  justify-content: center !important;
+  align-items: center !important;
+  gap: var(--space-2, 8px) !important;
+}
+
+/* Compact theme toggle switch */
+[data-compact-mode="true"] .theme-toggle-switch,
+.widget-floating-panel .theme-toggle-switch {
+  width: 36px !important;
+  height: 20px !important;
+}
+
+[data-compact-mode="true"] .theme-toggle-thumb,
+.widget-floating-panel .theme-toggle-thumb {
+  width: 16px !important;
+  height: 16px !important;
+}
+
+[data-compact-mode="true"] .theme-toggle-switch.dark .theme-toggle-thumb,
+.widget-floating-panel .theme-toggle-switch.dark .theme-toggle-thumb {
+  transform: translateX(16px) !important;
+}
+
+[data-compact-mode="true"] .theme-label,
+.widget-floating-panel .theme-label {
+  font-size: 11px !important;
+}
+
+/* Ensure conversation list doesn't push theme toggle out */
+[data-compact-mode="true"] .chat-history-list-container,
+.widget-floating-panel .chat-history-list-container {
+  flex: 1 !important;
+  min-height: 0 !important;
+  overflow-y: auto !important;
+}

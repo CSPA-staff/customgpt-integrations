@@ -1,0 +1,422 @@
+/**
+ * MobileDrawer.css - Mobile Drawer and Navigation Styles
+ *
+ * Responsive mobile drawer with swipe gestures
+ * Includes styles for:
+ * - Mobile drawer (full-width slide-in)
+ * - Hamburger button (animated)
+ * - Swipe actions for conversations
+ * - Responsive breakpoints
+ */
+
+/* Import Design Tokens */
+@import '../../styles/design-tokens.css';
+
+/* ============================================
+   HAMBURGER BUTTON
+   ============================================ */
+
+.hamburger-button {
+  position: relative;
+  width: 40px;
+  height: 40px;
+  background: transparent;
+  border: none;
+  cursor: pointer;
+  padding: 8px;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 5px;
+  transition: var(--transition-all);
+  border-radius: var(--radius-md);
+  z-index: calc(var(--z-modal) + 1);
+}
+
+.hamburger-button:hover {
+  background: var(--bg-surface);
+}
+
+.hamburger-button:focus-visible {
+  outline: var(--border-2) solid var(--color-primary);
+  outline-offset: 2px;
+}
+
+.hamburger-line {
+  width: 24px;
+  height: 2px;
+  background: var(--text-primary);
+  border-radius: var(--radius-full);
+  transition: all 0.3s var(--ease-out);
+  transform-origin: center;
+}
+
+/* Animated Hamburger to X */
+.hamburger-button.open .hamburger-line-top {
+  transform: translateY(7px) rotate(45deg);
+}
+
+.hamburger-button.open .hamburger-line-middle {
+  opacity: 0;
+  transform: scaleX(0);
+}
+
+.hamburger-button.open .hamburger-line-bottom {
+  transform: translateY(-7px) rotate(-45deg);
+}
+
+/* ============================================
+   MOBILE DRAWER BACKDROP
+   ============================================ */
+
+.mobile-drawer-backdrop {
+  position: fixed;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  background: var(--bg-overlay);
+  z-index: var(--z-modal-backdrop);
+  animation: fadeInBackdrop 0.25s var(--ease-out);
+  -webkit-tap-highlight-color: transparent;
+}
+
+@keyframes fadeInBackdrop {
+  from {
+    opacity: 0;
+  }
+  to {
+    opacity: 1;
+  }
+}
+
+/* ============================================
+   MOBILE DRAWER
+   ============================================ */
+
+.mobile-drawer {
+  position: fixed;
+  top: 0;
+  left: 0;
+  bottom: 0;
+  width: 100%;
+  max-width: 320px;
+  background: var(--bg-primary);
+  box-shadow: var(--shadow-xl);
+  z-index: var(--z-modal);
+  overflow-y: auto;
+  animation: slideInLeft 0.25s var(--ease-out);
+  display: flex;
+  flex-direction: column;
+}
+
+@keyframes slideInLeft {
+  from {
+    transform: translateX(-100%);
+  }
+  to {
+    transform: translateX(0);
+  }
+}
+
+/* Drawer scrollbar */
+.mobile-drawer::-webkit-scrollbar {
+  width: 4px;
+}
+
+.mobile-drawer::-webkit-scrollbar-track {
+  background: transparent;
+}
+
+.mobile-drawer::-webkit-scrollbar-thumb {
+  background: var(--border-primary);
+  border-radius: var(--radius-full);
+}
+
+.mobile-drawer::-webkit-scrollbar-thumb:hover {
+  background: var(--text-muted);
+}
+
+/* ============================================
+   DRAWER HEADER
+   ============================================ */
+
+.drawer-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: var(--space-4);
+  border-bottom: 1px solid var(--border-primary);
+  background: var(--bg-primary);
+  position: sticky;
+  top: 0;
+  z-index: 10;
+}
+
+.drawer-title {
+  font-size: var(--text-base);
+  font-weight: var(--font-semibold);
+  color: var(--text-primary);
+  margin: 0;
+}
+
+.drawer-close-button {
+  width: 32px;
+  height: 32px;
+  border-radius: var(--radius-full);
+  border: none;
+  background: transparent;
+  color: var(--text-tertiary);
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  transition: var(--transition-all);
+}
+
+.drawer-close-button:hover {
+  background: var(--bg-surface);
+  color: var(--text-primary);
+}
+
+.drawer-close-button svg {
+  width: 18px;
+  height: 18px;
+}
+
+/* ============================================
+   DRAWER CONTENT
+   ============================================ */
+
+.drawer-content {
+  flex: 1;
+  padding: var(--space-3);
+  overflow-y: auto;
+}
+
+/* ============================================
+   CONVERSATION SWIPE ACTIONS
+   ============================================ */
+
+.conversation-swipe-container {
+  position: relative;
+  overflow: hidden;
+  -webkit-tap-highlight-color: transparent;
+  user-select: none;
+  -webkit-user-select: none;
+}
+
+.conversation-swipe-container.deleting {
+  animation: slideOutRight 0.3s var(--ease-in) forwards;
+}
+
+@keyframes slideOutRight {
+  from {
+    transform: translateX(0);
+    opacity: 1;
+  }
+  to {
+    transform: translateX(100%);
+    opacity: 0;
+  }
+}
+
+.swipe-action-background {
+  position: absolute;
+  top: 0;
+  right: 0;
+  bottom: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  pointer-events: all;
+}
+
+.swipe-delete-button {
+  background: transparent;
+  border: none;
+  color: white;
+  cursor: pointer;
+  padding: var(--space-2);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  min-width: 40px;
+  min-height: 40px;
+  -webkit-tap-highlight-color: transparent;
+  transition: var(--transition-transform);
+}
+
+.swipe-delete-button:active {
+  transform: scale(0.9);
+}
+
+.swipe-content {
+  position: relative;
+  z-index: 1;
+  background: var(--bg-primary);
+  will-change: transform;
+  -webkit-tap-highlight-color: transparent;
+}
+
+/* ============================================
+   CONVERSATION LIST ITEM
+   ============================================ */
+
+.conversation-item {
+  display: flex;
+  align-items: center;
+  gap: var(--space-3);
+  padding: var(--space-3) var(--space-4);
+  border-radius: var(--radius-lg);
+  cursor: pointer;
+  transition: var(--transition-all);
+  background: var(--bg-primary);
+  border: 1px solid transparent;
+  margin-bottom: var(--space-2);
+  min-height: 56px;
+}
+
+.conversation-item:hover {
+  background: var(--bg-surface);
+  border-color: var(--border-primary);
+}
+
+.conversation-item.active {
+  background: var(--color-primary-light);
+  border-color: var(--color-primary);
+}
+
+.conversation-item-icon {
+  width: 32px;
+  height: 32px;
+  border-radius: var(--radius-full);
+  background: var(--bg-tertiary);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  color: var(--text-secondary);
+  flex-shrink: 0;
+}
+
+.conversation-item-content {
+  flex: 1;
+  min-width: 0;
+}
+
+.conversation-item-title {
+  font-size: var(--text-sm);
+  font-weight: var(--font-medium);
+  color: var(--text-primary);
+  margin: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.conversation-item-subtitle {
+  font-size: var(--text-xs);
+  color: var(--text-tertiary);
+  margin: 0;
+  margin-top: 2px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+/* ============================================
+   RESPONSIVE BREAKPOINTS
+   ============================================ */
+
+/* Mobile: Drawer mode */
+@media (max-width: 767px) {
+  .mobile-drawer {
+    max-width: 100%;
+  }
+
+  .hamburger-button {
+    display: flex;
+  }
+}
+
+/* Tablet and up: Hide mobile drawer components */
+@media (min-width: 768px) {
+  .hamburger-button,
+  .mobile-drawer-backdrop,
+  .mobile-drawer {
+    display: none;
+  }
+}
+
+/* Desktop: Persistent sidebar (future implementation) */
+@media (min-width: 1024px) {
+  /* Persistent sidebar styles will go here */
+}
+
+/* ============================================
+   ACCESSIBILITY ENHANCEMENTS
+   ============================================ */
+
+/* Reduced Motion Support */
+@media (prefers-reduced-motion: reduce) {
+  .mobile-drawer,
+  .mobile-drawer-backdrop,
+  .hamburger-line,
+  .conversation-swipe-container,
+  .swipe-content {
+    animation: none !important;
+    transition: none !important;
+  }
+}
+
+/* High Contrast Mode */
+@media (prefers-contrast: high) {
+  .hamburger-button:hover {
+    background: var(--bg-surface);
+    border: 1px solid var(--border-primary);
+  }
+
+  .mobile-drawer {
+    border-right: 2px solid var(--border-primary);
+  }
+
+  .conversation-item:hover {
+    border: 2px solid var(--border-primary);
+  }
+}
+
+/* Focus Visible States */
+.conversation-item:focus-visible {
+  outline: var(--border-2) solid var(--color-primary);
+  outline-offset: 2px;
+}
+
+/* ============================================
+   DARK THEME OVERRIDES
+   ============================================ */
+
+/* Dark theme handled automatically by design tokens */
+
+/* ============================================
+   TOUCH OPTIMIZATIONS
+   ============================================ */
+
+/* Prevent text selection during swipe */
+.conversation-swipe-container * {
+  -webkit-touch-callout: none;
+  -webkit-user-select: none;
+  -khtml-user-select: none;
+  -moz-user-select: none;
+  -ms-user-select: none;
+  user-select: none;
+}
+
+/* Allow text selection in non-swipeable areas */
+.conversation-item-title,
+.conversation-item-subtitle {
+  -webkit-user-select: text;
+  -moz-user-select: text;
+  -ms-user-select: text;
+  user-select: text;
+}

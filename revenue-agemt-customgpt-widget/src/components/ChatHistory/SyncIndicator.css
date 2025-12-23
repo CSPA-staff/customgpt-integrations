@@ -1,0 +1,93 @@
+/**
+ * SyncIndicator Styles
+ *
+ * Compact sync status indicator with animations and transitions
+ */
+
+.sync-indicator {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 4px 8px;
+  border-radius: 6px;
+  background: var(--bg-secondary);
+  backdrop-filter: blur(10px);
+  -webkit-backdrop-filter: blur(10px);
+  border: 1px solid var(--border-primary);
+  font-size: 11px;
+  font-weight: 500;
+  color: var(--text-secondary);
+  transition: all 0.2s ease;
+  animation: fadeIn 0.2s ease;
+}
+
+.sync-indicator-content {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+
+/* Sync icon styles */
+.sync-icon {
+  flex-shrink: 0;
+  transition: all 0.2s ease;
+}
+
+/* Syncing animation */
+.sync-icon.syncing {
+  color: var(--color-primary);
+  animation: rotate 1s linear infinite;
+}
+
+/* Synced icon */
+.sync-icon.synced {
+  color: var(--color-success);
+}
+
+/* Sync text */
+.sync-text {
+  white-space: nowrap;
+  user-select: none;
+}
+
+/* Animations */
+@keyframes fadeIn {
+  from {
+    opacity: 0;
+    transform: translateY(-4px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+@keyframes rotate {
+  from {
+    transform: rotate(0deg);
+  }
+  to {
+    transform: rotate(360deg);
+  }
+}
+
+/* Hover state */
+.sync-indicator:hover {
+  background: var(--bg-surface-hover);
+  border-color: var(--border-secondary);
+}
+
+/* Dark mode adjustments - Handled automatically by design tokens */
+
+/* Reduced motion */
+@media (prefers-reduced-motion: reduce) {
+  .sync-indicator,
+  .sync-icon {
+    animation: none;
+    transition: none;
+  }
+
+  .sync-icon.syncing {
+    animation: none;
+  }
+}

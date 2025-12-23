@@ -1,0 +1,104 @@
+/**
+ * FloatingChatButton.css - Floating Chat Button Styles
+ * A modern floating action button for chatbot mode
+ */
+
+@import '../styles/design-tokens.css';
+
+.floating-chat-button {
+  position: fixed;
+  width: 60px;
+  height: 60px;
+  border-radius: var(--radius-full);
+  background: var(--color-primary);
+  color: var(--text-inverse);
+  border: none;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  box-shadow: 0 4px 20px rgba(0, 0, 0, 0.15), 0 2px 8px rgba(0, 0, 0, 0.1);
+  transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+  z-index: 9999;
+}
+
+/* Position variants */
+.floating-chat-button.bottom-right {
+  bottom: 24px;
+  right: 24px;
+}
+
+.floating-chat-button.bottom-left {
+  bottom: 24px;
+  left: 24px;
+}
+
+/* Hover state */
+.floating-chat-button:hover {
+  transform: scale(1.08);
+  box-shadow: 0 6px 24px rgba(0, 0, 0, 0.2), 0 4px 12px rgba(0, 0, 0, 0.15);
+}
+
+/* Active/pressed state */
+.floating-chat-button:active {
+  transform: scale(0.95);
+}
+
+/* Open state - rotate icon */
+.floating-chat-button.open {
+  background: var(--bg-tertiary);
+  color: var(--text-primary);
+}
+
+/* Icon animation */
+.floating-button-icon {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  transition: transform 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+}
+
+.floating-chat-button.open .floating-button-icon {
+  transform: rotate(90deg);
+}
+
+/* Pulse animation when closed (attention grabber) */
+@keyframes pulse-attention {
+  0%, 100% {
+    box-shadow: 0 4px 20px rgba(0, 0, 0, 0.15), 0 2px 8px rgba(0, 0, 0, 0.1);
+  }
+  50% {
+    box-shadow: 0 4px 20px rgba(0, 0, 0, 0.15), 0 2px 8px rgba(0, 0, 0, 0.1), 0 0 0 8px rgba(0, 0, 0, 0.05);
+  }
+}
+
+.floating-chat-button:not(.open) {
+  animation: pulse-attention 2s ease-in-out infinite;
+}
+
+.floating-chat-button:hover:not(.open) {
+  animation: none;
+}
+
+/* Dark theme adjustments */
+.dark-theme .floating-chat-button.open {
+  background: var(--bg-surface);
+}
+
+/* Mobile adjustments */
+@media (max-width: 480px) {
+  .floating-chat-button {
+    width: 54px;
+    height: 54px;
+  }
+
+  .floating-chat-button.bottom-right {
+    bottom: 16px;
+    right: 16px;
+  }
+
+  .floating-chat-button.bottom-left {
+    bottom: 16px;
+    left: 16px;
+  }
+}

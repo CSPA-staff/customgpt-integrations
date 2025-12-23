@@ -1,0 +1,179 @@
+/**
+ * RenameDialog Styles
+ *
+ * Inline editing mode for conversation titles.
+ */
+
+.rename-dialog {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  padding: 8px;
+  background: var(--bg-secondary);
+  border-radius: 6px;
+}
+
+.rename-form {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.rename-input {
+  flex: 1;
+  padding: 8px 10px;
+  background: var(--bg-primary);
+  border: 2px solid var(--border-primary);
+  border-radius: 4px;
+  color: var(--text-primary);
+  font-size: 14px;
+  font-family: inherit;
+  transition: all 0.15s ease;
+}
+
+.rename-input:focus {
+  outline: none;
+  border-color: var(--color-primary);
+  box-shadow: var(--shadow-focus);
+}
+
+.rename-input.error {
+  border-color: var(--color-error);
+}
+
+.rename-input.error:focus {
+  box-shadow: var(--shadow-focus-error);
+}
+
+.rename-input:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
+.rename-actions {
+  display: flex;
+  gap: 4px;
+}
+
+.rename-save-btn,
+.rename-cancel-btn {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 28px;
+  height: 28px;
+  padding: 0;
+  border: none;
+  border-radius: 4px;
+  cursor: pointer;
+  transition: all 0.15s ease;
+}
+
+.rename-save-btn {
+  background: var(--color-primary);
+  color: var(--text-inverse);
+}
+
+.rename-save-btn:hover:not(:disabled) {
+  background: var(--color-primary-hover);
+  transform: scale(1.05);
+}
+
+.rename-save-btn:active:not(:disabled) {
+  transform: scale(0.95);
+}
+
+.rename-save-btn:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
+.rename-cancel-btn {
+  background: var(--bg-secondary);
+  color: var(--text-secondary);
+}
+
+.rename-cancel-btn:hover:not(:disabled) {
+  background: var(--bg-surface-hover);
+  color: var(--text-primary);
+}
+
+.rename-cancel-btn:active:not(:disabled) {
+  transform: scale(0.95);
+}
+
+.rename-cancel-btn:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
+.rename-error {
+  padding: 6px 10px;
+  background: var(--color-error-light);
+  border-left: 3px solid var(--color-error);
+  border-radius: 4px;
+  color: var(--color-error);
+  font-size: 12px;
+  animation: error-fade-in 0.15s ease;
+}
+
+@keyframes error-fade-in {
+  from {
+    opacity: 0;
+    transform: translateY(-4px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+.rename-hint {
+  font-size: 11px;
+  color: var(--text-tertiary);
+  text-align: right;
+}
+
+/* Spinner Animation */
+@keyframes spin {
+  from {
+    transform: rotate(0deg);
+  }
+  to {
+    transform: rotate(360deg);
+  }
+}
+
+.spinner {
+  animation: spin 0.8s linear infinite;
+}
+
+/* Dark Theme Support - Handled automatically by design tokens */
+
+/* Accessibility: High Contrast Mode */
+@media (prefers-contrast: high) {
+  .rename-input {
+    border-width: 3px;
+  }
+
+  .rename-input:focus {
+    box-shadow: var(--shadow-focus-strong);
+  }
+}
+
+/* Accessibility: Reduced Motion */
+@media (prefers-reduced-motion: reduce) {
+  .rename-input,
+  .rename-save-btn,
+  .rename-cancel-btn {
+    transition: none;
+  }
+
+  .rename-error {
+    animation: none;
+  }
+
+  .spinner {
+    animation: none;
+  }
+}

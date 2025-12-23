@@ -1,0 +1,397 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Cross-Tab Sync Test</title>
+  <style>
+    * {
+      margin: 0;
+      padding: 0;
+      box-sizing: border-box;
+    }
+
+    body {
+      font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+      background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+      min-height: 100vh;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      padding: 20px;
+    }
+
+    .container {
+      background: white;
+      border-radius: 16px;
+      box-shadow: 0 20px 60px rgba(0, 0, 0, 0.3);
+      max-width: 600px;
+      width: 100%;
+      padding: 32px;
+    }
+
+    h1 {
+      font-size: 24px;
+      font-weight: 700;
+      color: #1f2937;
+      margin-bottom: 8px;
+    }
+
+    .subtitle {
+      font-size: 14px;
+      color: #6b7280;
+      margin-bottom: 24px;
+    }
+
+    .info-box {
+      background: #f3f4f6;
+      border-left: 4px solid #3b82f6;
+      padding: 16px;
+      border-radius: 8px;
+      margin-bottom: 24px;
+    }
+
+    .info-box h2 {
+      font-size: 14px;
+      font-weight: 600;
+      color: #1f2937;
+      margin-bottom: 8px;
+    }
+
+    .info-box p {
+      font-size: 13px;
+      color: #4b5563;
+      line-height: 1.5;
+    }
+
+    .status {
+      display: flex;
+      align-items: center;
+      gap: 12px;
+      padding: 12px 16px;
+      background: #f9fafb;
+      border: 1px solid #e5e7eb;
+      border-radius: 8px;
+      margin-bottom: 16px;
+    }
+
+    .status-icon {
+      width: 16px;
+      height: 16px;
+      border-radius: 50%;
+      flex-shrink: 0;
+    }
+
+    .status-icon.connected {
+      background: #10b981;
+      box-shadow: 0 0 0 3px rgba(16, 185, 129, 0.2);
+    }
+
+    .status-icon.fallback {
+      background: #f59e0b;
+      box-shadow: 0 0 0 3px rgba(245, 158, 11, 0.2);
+    }
+
+    .status-text {
+      font-size: 13px;
+      color: #4b5563;
+    }
+
+    .status-label {
+      font-weight: 600;
+      color: #1f2937;
+    }
+
+    .controls {
+      display: grid;
+      gap: 12px;
+      margin-bottom: 24px;
+    }
+
+    button {
+      padding: 12px 16px;
+      border: none;
+      border-radius: 8px;
+      font-size: 14px;
+      font-weight: 500;
+      cursor: pointer;
+      transition: all 0.2s;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      gap: 8px;
+    }
+
+    button:hover {
+      transform: translateY(-1px);
+      box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
+    }
+
+    button:active {
+      transform: translateY(0);
+    }
+
+    .btn-primary {
+      background: #3b82f6;
+      color: white;
+    }
+
+    .btn-success {
+      background: #10b981;
+      color: white;
+    }
+
+    .btn-danger {
+      background: #ef4444;
+      color: white;
+    }
+
+    .btn-warning {
+      background: #f59e0b;
+      color: white;
+    }
+
+    .log {
+      background: #1f2937;
+      color: #d1d5db;
+      border-radius: 8px;
+      padding: 16px;
+      max-height: 300px;
+      overflow-y: auto;
+      font-family: 'Courier New', monospace;
+      font-size: 12px;
+      line-height: 1.5;
+    }
+
+    .log-entry {
+      margin-bottom: 4px;
+      padding: 4px 0;
+      border-bottom: 1px solid rgba(255, 255, 255, 0.05);
+    }
+
+    .log-time {
+      color: #9ca3af;
+      margin-right: 8px;
+    }
+
+    .log-type {
+      display: inline-block;
+      padding: 2px 6px;
+      border-radius: 4px;
+      font-size: 10px;
+      font-weight: 600;
+      margin-right: 8px;
+    }
+
+    .log-type.create { background: #10b981; color: white; }
+    .log-type.update { background: #3b82f6; color: white; }
+    .log-type.delete { background: #ef4444; color: white; }
+    .log-type.rename { background: #f59e0b; color: white; }
+    .log-type.clear { background: #6366f1; color: white; }
+
+    .tab-id {
+      font-size: 11px;
+      color: #6b7280;
+      text-align: center;
+      margin-top: 16px;
+      padding-top: 16px;
+      border-top: 1px solid #e5e7eb;
+    }
+
+    @keyframes rotate {
+      from { transform: rotate(0deg); }
+      to { transform: rotate(360deg); }
+    }
+
+    .spinning {
+      animation: rotate 1s linear infinite;
+    }
+  </style>
+</head>
+<body>
+  <div class="container">
+    <h1>Cross-Tab Sync Test</h1>
+    <p class="subtitle">Open this page in multiple tabs to test real-time synchronization</p>
+
+    <div class="info-box">
+      <h2>How to Test</h2>
+      <p>
+        1. Open this page in 2 or more browser tabs<br>
+        2. Click buttons in any tab<br>
+        3. Watch the message log update in ALL tabs in real-time
+      </p>
+    </div>
+
+    <div class="status">
+      <div class="status-icon" id="statusIcon"></div>
+      <div class="status-text">
+        <span class="status-label">Status:</span>
+        <span id="statusText">Initializing...</span>
+      </div>
+    </div>
+
+    <div class="controls">
+      <button class="btn-primary" onclick="sendMessage('CREATE')">
+        <svg width="16" height="16" viewBox="0 0 24 24" fill="currentColor">
+          <path d="M19 13h-6v6h-2v-6H5v-2h6V5h2v6h6v2z"/>
+        </svg>
+        Create Conversation
+      </button>
+
+      <button class="btn-success" onclick="sendMessage('UPDATE')">
+        <svg width="16" height="16" viewBox="0 0 24 24" fill="currentColor">
+          <path d="M3 17.25V21h3.75L17.81 9.94l-3.75-3.75L3 17.25zM20.71 7.04c.39-.39.39-1.02 0-1.41l-2.34-2.34c-.39-.39-1.02-.39-1.41 0l-1.83 1.83 3.75 3.75 1.83-1.83z"/>
+        </svg>
+        Update Conversation
+      </button>
+
+      <button class="btn-warning" onclick="sendMessage('RENAME')">
+        <svg width="16" height="16" viewBox="0 0 24 24" fill="currentColor">
+          <path d="M3 17.25V21h3.75L17.81 9.94l-3.75-3.75L3 17.25zM20.71 7.04c.39-.39.39-1.02 0-1.41l-2.34-2.34c-.39-.39-1.02-.39-1.41 0l-1.83 1.83 3.75 3.75 1.83-1.83z"/>
+        </svg>
+        Rename Conversation
+      </button>
+
+      <button class="btn-danger" onclick="sendMessage('DELETE')">
+        <svg width="16" height="16" viewBox="0 0 24 24" fill="currentColor">
+          <path d="M6 19c0 1.1.9 2 2 2h8c1.1 0 2-.9 2-2V7H6v12zM19 4h-3.5l-1-1h-5l-1 1H5v2h14V4z"/>
+        </svg>
+        Delete Conversation
+      </button>
+    </div>
+
+    <div class="log" id="messageLog">
+      <div class="log-entry">
+        <span class="log-time">[Ready]</span>
+        <span>Waiting for messages...</span>
+      </div>
+    </div>
+
+    <div class="tab-id">
+      Tab ID: <code id="tabIdDisplay"></code>
+    </div>
+  </div>
+
+  <script>
+    // Generate unique tab ID
+    const tabId = `tab_${Date.now()}_${Math.random().toString(36).slice(2, 11)}`;
+    document.getElementById('tabIdDisplay').textContent = tabId;
+
+    // Message log
+    const messageLog = document.getElementById('messageLog');
+    const statusIcon = document.getElementById('statusIcon');
+    const statusText = document.getElementById('statusText');
+
+    // Check BroadcastChannel support
+    const isSupported = typeof BroadcastChannel !== 'undefined';
+    let channel = null;
+
+    if (isSupported) {
+      try {
+        channel = new BroadcastChannel('conversation-history');
+        statusIcon.className = 'status-icon connected';
+        statusText.textContent = 'Connected (BroadcastChannel API)';
+
+        // Listen for messages
+        channel.addEventListener('message', (event) => {
+          const message = event.data;
+          if (message.tabId !== tabId) {
+            logMessage('RECEIVED', message);
+          }
+        });
+      } catch (error) {
+        statusIcon.className = 'status-icon fallback';
+        statusText.textContent = 'Fallback Mode (localStorage)';
+        setupLocalStorageFallback();
+      }
+    } else {
+      statusIcon.className = 'status-icon fallback';
+      statusText.textContent = 'Fallback Mode (localStorage)';
+      setupLocalStorageFallback();
+    }
+
+    // localStorage fallback
+    function setupLocalStorageFallback() {
+      window.addEventListener('storage', (event) => {
+        if (event.key === 'broadcast_conversation-history' && event.newValue) {
+          try {
+            const message = JSON.parse(event.newValue);
+            if (message.tabId !== tabId) {
+              logMessage('RECEIVED', message);
+            }
+          } catch (error) {
+            console.error('Failed to parse message:', error);
+          }
+        }
+      });
+    }
+
+    // Send message
+    function sendMessage(type) {
+      const message = {
+        type,
+        sessionId: `session_${Math.random().toString(36).slice(2, 11)}`,
+        data: {
+          title: `${type} Example`,
+          updatedAt: Date.now(),
+        },
+        timestamp: Date.now(),
+        tabId,
+      };
+
+      if (channel) {
+        channel.postMessage(message);
+      } else {
+        localStorage.setItem('broadcast_conversation-history', JSON.stringify(message));
+        setTimeout(() => {
+          localStorage.removeItem('broadcast_conversation-history');
+        }, 100);
+      }
+
+      logMessage('SENT', message);
+    }
+
+    // Log message
+    function logMessage(direction, message) {
+      const time = new Date().toLocaleTimeString('en-US', {
+        hour12: false,
+        hour: '2-digit',
+        minute: '2-digit',
+        second: '2-digit',
+      });
+
+      const entry = document.createElement('div');
+      entry.className = 'log-entry';
+
+      const typeClass = message.type.toLowerCase();
+      const directionIcon = direction === 'SENT' ? '↑' : '↓';
+
+      entry.innerHTML = `
+        <span class="log-time">[${time}]</span>
+        <span class="log-type ${typeClass}">${message.type}</span>
+        <span>${directionIcon} ${direction}</span>
+        <span style="color: #9ca3af; margin-left: 8px;">
+          ${message.sessionId ? message.sessionId.slice(0, 12) + '...' : 'global'}
+        </span>
+      `;
+
+      messageLog.insertBefore(entry, messageLog.firstChild);
+
+      // Keep only last 50 entries
+      while (messageLog.children.length > 50) {
+        messageLog.removeChild(messageLog.lastChild);
+      }
+
+      // Scroll to top
+      messageLog.scrollTop = 0;
+    }
+
+    // Cleanup
+    window.addEventListener('beforeunload', () => {
+      if (channel) {
+        channel.close();
+      }
+    });
+  </script>
+</body>
+</html>

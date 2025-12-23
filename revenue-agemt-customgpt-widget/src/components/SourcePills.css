@@ -1,0 +1,178 @@
+/* ============================================
+   SOURCE PILLS - Compact Text-Based Citations
+   Fourth display option for mobile & floating UI
+   ============================================ */
+
+.source-pills-container {
+  margin-top: var(--space-3);
+  padding-top: var(--space-2);
+}
+
+.source-pills {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--space-2);
+  align-items: center;
+}
+
+.source-pill {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--space-1);
+  padding: var(--space-1) var(--space-2);
+  background: var(--bg-secondary);
+  border: 1px solid var(--border-primary);
+  border-radius: var(--radius-lg);
+  color: var(--text-secondary);
+  font-size: var(--text-xs);
+  text-decoration: none;
+  transition: all 0.15s ease;
+  max-width: 220px;
+  overflow: hidden;
+  white-space: nowrap;
+}
+
+.source-pill:hover {
+  background: var(--bg-tertiary);
+  border-color: var(--border-secondary);
+  color: var(--text-primary);
+  transform: translateY(-1px);
+  box-shadow: 0 2px 4px rgba(0, 0, 0, 0.05);
+}
+
+.source-pill:active {
+  transform: translateY(0);
+}
+
+.source-pill-icon {
+  flex-shrink: 0;
+  opacity: 0.7;
+}
+
+.source-pill:hover .source-pill-icon {
+  opacity: 1;
+}
+
+.source-pill-title {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  font-weight: var(--font-medium);
+}
+
+.source-pill-external {
+  flex-shrink: 0;
+  opacity: 0.5;
+  margin-left: 2px;
+}
+
+.source-pill:hover .source-pill-external {
+  opacity: 0.8;
+}
+
+.source-pills-more {
+  font-size: var(--text-xs);
+  color: var(--text-muted);
+  padding: var(--space-1) var(--space-2);
+  font-style: italic;
+}
+
+/* Dark mode adjustments */
+[data-theme="dark"] .source-pill {
+  background: var(--bg-tertiary);
+  border-color: var(--border-secondary);
+}
+
+[data-theme="dark"] .source-pill:hover {
+  background: var(--bg-secondary);
+  box-shadow: 0 2px 4px rgba(0, 0, 0, 0.2);
+}
+
+/* ============================================
+   MOBILE RESPONSIVE
+   ============================================ */
+
+@media (max-width: 480px) {
+  .source-pills-container {
+    margin-top: var(--space-2);
+  }
+
+  .source-pills {
+    gap: var(--space-1);
+  }
+
+  .source-pill {
+    padding: 4px 8px;
+    font-size: 11px;
+    max-width: 160px;
+    border-radius: var(--radius-md);
+  }
+
+  .source-pill-icon {
+    width: 12px;
+    height: 12px;
+  }
+
+  .source-pill-external {
+    display: none;
+  }
+
+  .source-pills-more {
+    font-size: 11px;
+    padding: 4px 6px;
+  }
+}
+
+/* ============================================
+   FLOATING WIDGET MODE
+   Compact layout for embedded widget
+   ============================================ */
+
+.floating-widget .source-pills-container,
+.embed-mode .source-pills-container {
+  margin-top: var(--space-2);
+  padding-top: var(--space-1);
+}
+
+.floating-widget .source-pill,
+.embed-mode .source-pill {
+  padding: 3px 6px;
+  font-size: 10px;
+  max-width: 140px;
+  gap: 3px;
+}
+
+.floating-widget .source-pill-icon,
+.embed-mode .source-pill-icon {
+  width: 11px;
+  height: 11px;
+}
+
+.floating-widget .source-pill-external,
+.embed-mode .source-pill-external {
+  display: none;
+}
+
+.floating-widget .source-pills-more,
+.embed-mode .source-pills-more {
+  font-size: 10px;
+  padding: 3px 5px;
+}
+
+/* Very small screens / compact mode */
+@media (max-width: 360px) {
+  .source-pill {
+    padding: 3px 6px;
+    font-size: 10px;
+    max-width: 120px;
+  }
+
+  .source-pill-icon {
+    width: 10px;
+    height: 10px;
+  }
+
+  .source-pill-external {
+    display: none;
+  }
+}

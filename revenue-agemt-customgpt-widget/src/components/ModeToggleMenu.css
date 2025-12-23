@@ -1,0 +1,103 @@
+/**
+ * ModeToggleMenu.css - Mode Toggle Menu Component
+ * Version: 2.0 - Modern Minimal Black & White Theme
+ */
+
+/* Import Design Tokens */
+@import '../styles/design-tokens.css';
+
+/* Menu Container */
+.mode-toggle-menu {
+  position: absolute;
+  top: 52px;
+  right: var(--space-4);
+  background: var(--bg-primary);
+  border: 1px solid var(--border-primary);
+  border-radius: var(--radius-lg);
+  box-shadow: var(--shadow-lg);
+  min-width: 200px;
+  padding: var(--space-2) 0;
+  z-index: var(--z-popover);
+  animation: menuFadeIn 0.15s var(--ease-out);
+}
+
+@keyframes menuFadeIn {
+  from {
+    opacity: 0;
+    transform: translateY(-4px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+/* Menu Item */
+.mode-menu-item {
+  width: 100%;
+  display: flex;
+  align-items: center;
+  gap: var(--space-3);
+  padding: var(--space-3) var(--space-4);
+  background: none;
+  border: none;
+  cursor: pointer;
+  font-size: var(--text-sm);
+  color: var(--text-primary);
+  transition: background 0.1s var(--ease-out);
+  text-align: left;
+}
+
+.mode-menu-item:hover {
+  background: var(--bg-surface);
+}
+
+.mode-menu-item.active {
+  color: var(--color-primary);
+  font-weight: var(--font-medium);
+}
+
+/* Icon */
+.mode-icon {
+  font-size: var(--text-lg);
+  width: 20px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  color: var(--text-secondary);
+}
+
+.mode-menu-item.active .mode-icon {
+  color: var(--color-primary);
+}
+
+/* Label */
+.mode-label {
+  flex: 1;
+}
+
+/* Checkmark */
+.mode-checkmark {
+  font-size: var(--text-base);
+  color: var(--color-primary);
+  font-weight: var(--font-bold);
+}
+
+/* Mobile Responsive */
+@media (max-width: 768px) {
+  .mode-toggle-menu {
+    top: 48px;
+    right: var(--space-3);
+    min-width: 180px;
+  }
+
+  .mode-menu-item {
+    padding: var(--space-2) var(--space-3);
+    font-size: var(--text-xs);
+  }
+
+  .mode-icon {
+    font-size: var(--text-base);
+    width: 18px;
+  }
+}

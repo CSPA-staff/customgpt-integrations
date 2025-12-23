@@ -1,0 +1,123 @@
+/**
+ * EmptyState Styles
+ *
+ * Centered empty state with icon, message, and CTA button
+ */
+
+.chat-history-empty-state {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  padding: 48px 24px;
+  text-align: center;
+  min-height: 300px;
+  animation: fadeIn 0.3s ease-out;
+}
+
+.empty-state-icon {
+  color: var(--text-muted);
+  margin-bottom: 16px;
+  opacity: 0.6;
+}
+
+.empty-state-title {
+  font-size: var(--text-lg);
+  font-weight: var(--font-semibold);
+  color: var(--text-primary);
+  margin: 0 0 8px 0;
+}
+
+.empty-state-description {
+  font-size: var(--text-sm);
+  color: var(--text-secondary);
+  margin: 0 0 24px 0;
+  max-width: 320px;
+}
+
+.empty-state-button {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  padding: 10px 20px;
+  border-radius: var(--radius-lg);
+  font-size: var(--text-sm);
+  font-weight: var(--font-medium);
+  cursor: pointer;
+  transition: var(--transition-all);
+  border: none;
+  font-family: inherit;
+}
+
+.empty-state-button.primary {
+  background: var(--color-primary);
+  color: var(--text-inverse);
+}
+
+.empty-state-button.primary:hover {
+  opacity: 0.9;
+  transform: translateY(-1px);
+}
+
+.empty-state-button.primary:active {
+  transform: translateY(0);
+}
+
+.empty-state-button.secondary {
+  background: transparent;
+  color: var(--text-primary);
+  border: 1px solid var(--border-primary);
+}
+
+.empty-state-button.secondary:hover {
+  background: var(--bg-surface);
+  border-color: var(--color-primary);
+}
+
+.empty-state-button svg {
+  flex-shrink: 0;
+}
+
+@keyframes fadeIn {
+  from {
+    opacity: 0;
+    transform: translateY(8px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+/* Mobile optimizations */
+@media (max-width: 480px) {
+  .chat-history-empty-state {
+    padding: 32px 16px;
+    min-height: 240px;
+  }
+
+  .empty-state-icon svg {
+    width: 40px;
+    height: 40px;
+  }
+
+  .empty-state-title {
+    font-size: var(--text-base);
+  }
+
+  .empty-state-description {
+    font-size: var(--text-xs);
+    max-width: 280px;
+  }
+
+  .empty-state-button {
+    padding: 8px 16px;
+    font-size: var(--text-xs);
+  }
+
+  .empty-state-button svg {
+    width: 16px;
+    height: 16px;
+  }
+}

@@ -1,0 +1,68 @@
+/**
+ * ProductPreview.css - Product Preview Button
+ * Version: 2.0 - Modern Minimal Black & White Theme
+ */
+
+/* Import Design Tokens */
+@import '../styles/design-tokens.css';
+
+/* Product Preview Button - Compact inline style */
+.product-preview-button {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--space-1);
+  padding: var(--space-1) var(--space-2);
+  margin: 2px var(--space-1) 2px 0;
+  font-size: var(--text-xs);
+  font-weight: var(--font-medium);
+  color: var(--text-primary);
+  background: var(--bg-surface);
+  border: 1px solid var(--border-primary);
+  border-radius: var(--radius-md);
+  cursor: pointer;
+  transition: var(--transition-all);
+  vertical-align: middle;
+  white-space: nowrap;
+  max-width: 180px;
+}
+
+.product-preview-button:hover:not(:disabled) {
+  background: var(--bg-secondary);
+  border-color: var(--color-primary);
+}
+
+.product-preview-button:active:not(:disabled) {
+  transform: scale(0.98);
+}
+
+.product-preview-button:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
+.product-preview-button svg {
+  flex-shrink: 0;
+  color: var(--text-secondary);
+}
+
+.product-preview-button span {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.product-preview-button .preview-indicator {
+  color: var(--text-tertiary);
+  font-size: 9px;
+  font-weight: var(--font-semibold);
+  margin-left: 1px;
+}
+
+.product-preview-button .spinner {
+  animation: spin 0.8s linear infinite;
+}
+
+@keyframes spin {
+  from { transform: rotate(0deg); }
+  to { transform: rotate(360deg); }
+}

@@ -1,0 +1,94 @@
+/**
+ * WishlistButton Styles
+ */
+
+.wishlist-button {
+  /* Reset button styles */
+  background: none;
+  border: none;
+  padding: 0;
+  margin: 0;
+  cursor: pointer;
+
+  /* Layout */
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 40px;
+  height: 40px;
+
+  /* Visual */
+  border-radius: 50%;
+  color: var(--text-secondary);
+  transition: all 0.2s ease;
+
+  /* Focus styles for accessibility */
+  outline: none;
+  position: relative;
+}
+
+.wishlist-button:hover {
+  background-color: var(--bg-surface-hover);
+  color: var(--text-primary);
+}
+
+.wishlist-button:focus-visible {
+  box-shadow: var(--shadow-focus);
+}
+
+.wishlist-button:active {
+  transform: scale(0.95);
+}
+
+/* Saved state - Black in light mode, white in dark mode */
+.wishlist-button--saved {
+  color: var(--text-primary);
+}
+
+.wishlist-button--saved:hover {
+  color: var(--text-primary);
+  background-color: var(--bg-surface-hover);
+}
+
+/* Icon */
+.wishlist-button__icon {
+  width: 24px;
+  height: 24px;
+  transition: transform 0.2s ease;
+}
+
+.wishlist-button:active .wishlist-button__icon {
+  transform: scale(1.1);
+}
+
+/* Animation on save */
+@keyframes heart-pop {
+  0% {
+    transform: scale(1);
+  }
+  50% {
+    transform: scale(1.2);
+  }
+  100% {
+    transform: scale(1);
+  }
+}
+
+.wishlist-button--saved .wishlist-button__icon {
+  animation: heart-pop 0.3s ease;
+}
+
+/* Dark mode support - Handled automatically by design tokens */
+
+/* Mobile optimizations */
+@media (max-width: 768px) {
+  .wishlist-button {
+    width: 44px;
+    height: 44px;
+  }
+
+  .wishlist-button__icon {
+    width: 26px;
+    height: 26px;
+  }
+}
