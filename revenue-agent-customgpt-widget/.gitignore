@@ -47,8 +47,6 @@ RUNTIME_FIXES.md
 .claude/
 
 # VAD (Voice Activity Detection) model files
-# These are copied from node_modules during postinstall
-/public/*.onnx
-/public/*.wasm
-/public/*.mjs
-/public/vad.worklet.bundle.min.js
+# Note: These files MUST be committed for Vercel deployment to work
+# The postinstall/prebuild scripts copy them from node_modules for local dev
+# but Vercel needs them in git to serve them from the public directory
