@@ -157,37 +157,77 @@ export const WIDGET_CONFIG = {
 // ============================================
 
 /**
- * Validate required configuration
- * Throws error if critical env vars are missing
+ * Configuration validation result
  */
-export function validateConfig(): void {
-  const errors: string[] = [];
+export interface ConfigValidationResult {
+  valid: boolean;
+  warnings: string[];
+  features: {
+    customgpt: boolean;
+    voice: boolean;
+    tts: boolean;
+  };
+}
+
+/**
+ * Validate configuration and return warnings
+ * Does NOT throw - returns validation result with warnings
+ */
+export function validateConfig(): ConfigValidationResult {
+  const warnings: string[] = [];
+  const features = {
+    customgpt: true,
+    voice: true,
+    tts: true,
+  };
 
   // Check OpenAI API key (required for STT/TTS)
   if (!OPENAI_CONFIG.apiKey) {
-    errors.push('OPENAI_API_KEY is required for voice features');
+    warnings.push('OPENAI_API_KEY is not set - voice features will be disabled');
+    features.voice = false;
+    features.tts = false;
   }
 
-  // Check CustomGPT credentials if enabled
-  if (CUSTOMGPT_CONFIG.useCustomGPT) {
-    if (!CUSTOMGPT_CONFIG.projectId) {
-      errors.push('CUSTOMGPT_PROJECT_ID is required when USE_CUSTOMGPT=true');
-    }
-    if (!CUSTOMGPT_CONFIG.apiKey) {
-      errors.push('CUSTOMGPT_API_KEY is required when USE_CUSTOMGPT=true');
-    }
+  // Check CustomGPT credentials
+  if (!CUSTOMGPT_CONFIG.projectId) {
+    warnings.push('CUSTOMGPT_PROJECT_ID is not set - CustomGPT features will be disabled');
+    features.customgpt = false;
+  }
+  if (!CUSTOMGPT_CONFIG.apiKey) {
+    warnings.push('CUSTOMGPT_API_KEY is not set - CustomGPT features will be disabled');
+    features.customgpt = false;
   }
 
   // Check provider-specific TTS credentials
   if (TTS_CONFIG.provider === 'ELEVENLABS' && !TTS_CONFIG.elevenlabs.apiKey) {
-    errors.push('ELEVENLABS_API_KEY is required when TTS_PROVIDER=ELEVENLABS');
+    warnings.push('ELEVENLABS_API_KEY is not set - ElevenLabs TTS will fall back to OpenAI');
   }
 
-  if (errors.length > 0) {
-    throw new Error(
-      `Configuration validation failed:\n${errors.map(e => `  - ${e}`).join('\n')}`
-    );
+  // Log warnings in development
+  if (warnings.length > 0 && typeof window === 'undefined') {
+    console.warn('[Config] Configuration warnings:');
+    warnings.forEach(w => console.warn(`  - ${w}`));
   }
+
+  return {
+    valid: warnings.length === 0,
+    warnings,
+    features,
+  };
+}
+
+/**
+ * Check if CustomGPT is configured
+ */
+export function isCustomGPTConfigured(): boolean {
+  return !!(CUSTOMGPT_CONFIG.projectId && CUSTOMGPT_CONFIG.apiKey);
+}
+
+/**
+ * Check if voice features are configured
+ */
+export function isVoiceConfigured(): boolean {
+  return !!OPENAI_CONFIG.apiKey;
 }
 
 /**

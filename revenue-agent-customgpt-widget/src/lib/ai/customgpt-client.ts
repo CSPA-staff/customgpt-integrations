@@ -12,11 +12,15 @@ const PROJECT_ID = CUSTOMGPT_CONFIG.projectId;
 const API_KEY = CUSTOMGPT_CONFIG.apiKey;
 const LANGUAGE = LANGUAGE_CONFIG.default;
 
-if (!PROJECT_ID) {
-  throw new Error('CUSTOMGPT_PROJECT_ID environment variable is required');
-}
-if (!API_KEY) {
-  throw new Error('CUSTOMGPT_API_KEY environment variable is required');
+// Warn about missing config but don't throw - app should still load
+if (typeof window === 'undefined') {
+  // Server-side warnings
+  if (!PROJECT_ID) {
+    console.warn('[CustomGPT] Warning: CUSTOMGPT_PROJECT_ID environment variable is not set. CustomGPT features will be disabled.');
+  }
+  if (!API_KEY) {
+    console.warn('[CustomGPT] Warning: CUSTOMGPT_API_KEY environment variable is not set. CustomGPT features will be disabled.');
+  }
 }
 
 /**
@@ -206,9 +210,27 @@ export class CustomGPTClient {
 
   constructor() {
     this.baseUrl = BASE_URL;
-    this.projectId = PROJECT_ID!;
-    this.apiKey = API_KEY!;
+    this.projectId = PROJECT_ID || '';
+    this.apiKey = API_KEY || '';
     this.language = LANGUAGE;
+  }
+
+  /**
+   * Check if the client is properly configured
+   * @returns true if both projectId and apiKey are set
+   */
+  isConfigured(): boolean {
+    return !!(this.projectId && this.apiKey);
+  }
+
+  /**
+   * Throws an error if the client is not configured
+   * Call this at the start of methods that require configuration
+   */
+  private ensureConfigured(): void {
+    if (!this.isConfigured()) {
+      throw new Error('CustomGPT is not configured. Please set CUSTOMGPT_PROJECT_ID and CUSTOMGPT_API_KEY environment variables.');
+    }
   }
 
   /**
@@ -228,6 +250,7 @@ export class CustomGPTClient {
    * @returns Conversation data with session_id
    */
   async createConversation(): Promise<ConversationData> {
+    this.ensureConfigured();
     const url = `${this.baseUrl}/projects/${this.projectId}/conversations`;
 
     // CustomGPT API requires a "name" field
@@ -261,6 +284,7 @@ export class CustomGPTClient {
    * @returns Message response with AI response and citations
    */
   async sendMessage(sessionId: string, userMessage: string, agentCapability?: AgentCapability): Promise<MessageData> {
+    this.ensureConfigured();
     const url = `${this.baseUrl}/projects/${this.projectId}/conversations/${sessionId}/messages`;
 
     const params = new URLSearchParams({
@@ -310,6 +334,7 @@ export class CustomGPTClient {
    * @returns AsyncGenerator yielding chunks of the AI response
    */
   async *sendMessageStream(sessionId: string, userMessage: string, agentCapability?: AgentCapability): AsyncGenerator<string, void, unknown> {
+    this.ensureConfigured();
     const url = `${this.baseUrl}/projects/${this.projectId}/conversations/${sessionId}/messages`;
 
     const params = new URLSearchParams({
@@ -403,6 +428,7 @@ export class CustomGPTClient {
    * @returns List of messages in the conversation
    */
   async getConversationMessages(sessionId: string): Promise<MessageData[]> {
+    this.ensureConfigured();
     const allMessages: MessageData[] = [];
     let page = 1;
     let hasMore = true;
@@ -455,6 +481,7 @@ export class CustomGPTClient {
     messageId: number,
     reaction: 'liked' | 'disliked' | null
   ): Promise<MessageData> {
+    this.ensureConfigured();
     // Validate reaction value
     if (reaction !== 'liked' && reaction !== 'disliked' && reaction !== null) {
       throw new Error(`Invalid reaction value: ${reaction}. Must be 'liked', 'disliked', or null`);
@@ -503,6 +530,7 @@ export class CustomGPTClient {
    * @returns Message data with customer intelligence
    */
   async getMessageWithInsights(sessionId: string, messageId: number): Promise<MessageData> {
+    this.ensureConfigured();
     const url = `${this.baseUrl}/projects/${this.projectId}/conversations/${sessionId}/messages/${messageId}?includeInsights=true`;
 
     const response = await fetch(url, {
@@ -530,6 +558,7 @@ export class CustomGPTClient {
    * @returns Citation details
    */
   async getCitationDetails(citationId: number): Promise<any> {
+    this.ensureConfigured();
     const url = `${this.baseUrl}/projects/${this.projectId}/citations/${citationId}`;
 
     const response = await fetch(url, {
@@ -556,6 +585,7 @@ export class CustomGPTClient {
    * @returns Agent settings including title, avatar, example questions, etc.
    */
   async getAgentSettings(): Promise<AgentSettings> {
+    this.ensureConfigured();
     const url = `${this.baseUrl}/projects/${this.projectId}/settings`;
 
     const response = await fetch(url, {
@@ -582,6 +612,7 @@ export class CustomGPTClient {
    * @returns Agent details including name, type, status, etc.
    */
   async getAgentDetails(): Promise<AgentDetails> {
+    this.ensureConfigured();
     const url = `${this.baseUrl}/projects/${this.projectId}`;
 
     const response = await fetch(url, {
@@ -609,6 +640,7 @@ export class CustomGPTClient {
    * @returns Source data with upload status
    */
   async uploadFile(file: File): Promise<SourceData> {
+    this.ensureConfigured();
     const url = `${this.baseUrl}/projects/${this.projectId}/sources`;
 
     const formData = new FormData();
@@ -649,6 +681,7 @@ export class CustomGPTClient {
    * @returns True if deletion was successful
    */
   async deleteConversation(sessionId: string): Promise<boolean> {
+    this.ensureConfigured();
     const url = `${this.baseUrl}/projects/${this.projectId}/conversations/${sessionId}`;
 
     const response = await fetch(url, {
