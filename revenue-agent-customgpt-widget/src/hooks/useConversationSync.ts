@@ -19,6 +19,9 @@ export function useConversationSync() {
   const isMountedRef = useRef(true);
   const storageRef = useRef<any>(null);
   const autoSaveIntervalRef = useRef<NodeJS.Timeout | null>(null);
+  const isRestoringRef = useRef(false); // Track if we're in restore mode
+  const restoreTimeoutRef = useRef<NodeJS.Timeout | null>(null);
+  const isSyncingRef = useRef(false); // Prevent concurrent sync calls
 
   // Initialize storage adapter
   useEffect(() => {
@@ -106,6 +109,11 @@ export function useConversationSync() {
         clearInterval(autoSaveIntervalRef.current);
         autoSaveIntervalRef.current = null;
       }
+
+      if (restoreTimeoutRef.current) {
+        clearTimeout(restoreTimeoutRef.current);
+        restoreTimeoutRef.current = null;
+      }
     };
   }, []);
 
@@ -114,6 +122,12 @@ export function useConversationSync() {
     if (!isMountedRef.current) {
       return;
     }
+
+    // Prevent concurrent sync calls (race condition fix)
+    if (isSyncingRef.current) {
+      return;
+    }
+    isSyncingRef.current = true;
 
     try {
       if (!storageRef.current) {
@@ -136,11 +150,43 @@ export function useConversationSync() {
       const sessionId = stored.sessionId;
 
       // Detect session change - reset message count tracking
-      const isNewSession = lastSessionIdRef.current !== sessionId;
-      if (isNewSession) {
-        console.log('[ConversationSync] New session detected:', sessionId, 'previous:', lastSessionIdRef.current);
+      // IMPORTANT: Update lastSessionIdRef IMMEDIATELY to prevent race conditions
+      const isSessionChange = lastSessionIdRef.current !== sessionId;
+      if (isSessionChange) {
+        // Update ref FIRST before any async operations
+        const previousSession = lastSessionIdRef.current;
         lastSessionIdRef.current = sessionId;
         lastMessageCountRef.current = 0; // Reset for new session
+
+        console.log('[ConversationSync] Session changed:', sessionId, 'previous:', previousSession);
+
+        // Check if this is an EXISTING conversation being restored (has stored messages)
+        // Only apply restore period for existing conversations, not brand new ones
+        const existingRecord = await storageRef.current.get(sessionId);
+        const isRestoringExisting = existingRecord && existingRecord.messageCount > 0;
+
+        if (isRestoringExisting) {
+          // Mark as restoring for 2 seconds to avoid duplicate syncs during restore
+          isRestoringRef.current = true;
+          if (restoreTimeoutRef.current) {
+            clearTimeout(restoreTimeoutRef.current);
+          }
+          restoreTimeoutRef.current = setTimeout(() => {
+            isRestoringRef.current = false;
+            console.log('[ConversationSync] Restore period ended, syncing enabled');
+          }, 2000);
+          console.log('[ConversationSync] Restoring existing conversation, applying restore period');
+        } else {
+          // New conversation - no restore period needed
+          isRestoringRef.current = false;
+          console.log('[ConversationSync] New conversation detected, syncing immediately');
+        }
+      }
+
+      // Skip syncing during restore period (only for existing conversations being restored)
+      if (isRestoringRef.current) {
+        console.log('[ConversationSync] Skipping sync during restore period');
+        return;
       }
 
       // Count messages in DOM (user + assistant pairs)
@@ -154,9 +200,9 @@ export function useConversationSync() {
         return;
       }
 
-      // Skip if message count hasn't changed AND it's not a new session
-      // For new sessions, always sync the first message
-      if (messageCount === lastMessageCountRef.current && !isNewSession) {
+      // Skip if message count hasn't changed AND it's not a session change
+      // For session changes, always sync the first message
+      if (messageCount === lastMessageCountRef.current && !isSessionChange) {
         return;
       }
 
@@ -256,6 +302,9 @@ export function useConversationSync() {
       if (isMountedRef.current) {
         console.error('[ConversationSync] Failed to sync conversation:', error);
       }
+    } finally {
+      // Release the sync lock
+      isSyncingRef.current = false;
     }
   }
 }

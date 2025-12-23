@@ -5,7 +5,8 @@
  * Supports conversation creation, message sending, and streaming responses.
  */
 
-import { CUSTOMGPT_CONFIG, LANGUAGE_CONFIG } from '@/config/constants';
+import { CUSTOMGPT_CONFIG, LANGUAGE_CONFIG, AI_CONFIG } from '@/config/constants';
+import { retryAsync, RETRY_CONFIG_AI } from '@/lib/retry';
 
 const BASE_URL = CUSTOMGPT_CONFIG.apiBaseUrl;
 const PROJECT_ID = CUSTOMGPT_CONFIG.projectId;
@@ -245,6 +246,37 @@ export class CustomGPTClient {
   }
 
   /**
+   * Fetch with timeout support
+   * @param url - Request URL
+   * @param options - Fetch options
+   * @param timeoutMs - Timeout in milliseconds (default: 30s)
+   * @returns Response
+   */
+  private async fetchWithTimeout(
+    url: string,
+    options: RequestInit,
+    timeoutMs: number = AI_CONFIG.apiTimeoutMs
+  ): Promise<Response> {
+    const controller = new AbortController();
+    const timeoutId = setTimeout(() => controller.abort(), timeoutMs);
+
+    try {
+      const response = await fetch(url, {
+        ...options,
+        signal: controller.signal,
+      });
+      return response;
+    } catch (error: any) {
+      if (error.name === 'AbortError') {
+        throw new Error(`Request timeout after ${timeoutMs}ms`);
+      }
+      throw error;
+    } finally {
+      clearTimeout(timeoutId);
+    }
+  }
+
+  /**
    * Create a new conversation
    *
    * @returns Conversation data with session_id
@@ -256,23 +288,27 @@ export class CustomGPTClient {
     // CustomGPT API requires a "name" field
     const payload = { name: 'Chat Conversation' };
 
-    const response = await fetch(url, {
-      method: 'POST',
-      headers: this.getHeaders(),
-      body: JSON.stringify(payload),
-    });
+    return retryAsync(async () => {
+      const response = await this.fetchWithTimeout(url, {
+        method: 'POST',
+        headers: this.getHeaders(),
+        body: JSON.stringify(payload),
+      });
 
-    if (!response.ok) {
-      throw new Error(`Failed to create conversation: ${response.status} ${response.statusText}`);
-    }
+      if (!response.ok) {
+        const error = new Error(`Failed to create conversation: ${response.status} ${response.statusText}`);
+        (error as any).status = response.status;
+        throw error;
+      }
 
-    const data: ApiResponse<ConversationData> = await response.json();
+      const data: ApiResponse<ConversationData> = await response.json();
 
-    if (data.status !== 'success') {
-      throw new Error(`Failed to create conversation: ${data.message || 'Unknown error'}`);
-    }
+      if (data.status !== 'success') {
+        throw new Error(`Failed to create conversation: ${data.message || 'Unknown error'}`);
+      }
 
-    return data.data;
+      return data.data;
+    }, RETRY_CONFIG_AI, 'createConversation');
   }
 
   /**
@@ -305,24 +341,28 @@ export class CustomGPTClient {
     console.log('[CustomGPT] sendMessage - capability:', agentCapability || 'none');
     console.log('[CustomGPT] sendMessage - payload:', JSON.stringify(payload));
 
-    const response = await fetch(`${url}?${params}`, {
-      method: 'POST',
-      headers: this.getHeaders(),
-      body: JSON.stringify(payload),
-    });
+    return retryAsync(async () => {
+      const response = await this.fetchWithTimeout(`${url}?${params}`, {
+        method: 'POST',
+        headers: this.getHeaders(),
+        body: JSON.stringify(payload),
+      });
 
-    if (!response.ok) {
-      throw new Error(`Failed to send message: ${response.status} ${response.statusText}`);
-    }
+      if (!response.ok) {
+        const error = new Error(`Failed to send message: ${response.status} ${response.statusText}`);
+        (error as any).status = response.status;
+        throw error;
+      }
 
-    const data: ApiResponse<MessageData> = await response.json();
-    console.log('[CustomGPT] sendMessage - response received');
+      const data: ApiResponse<MessageData> = await response.json();
+      console.log('[CustomGPT] sendMessage - response received');
 
-    if (data.status !== 'success') {
-      throw new Error(`Failed to send message: ${data.message || 'Unknown error'}`);
-    }
+      if (data.status !== 'success') {
+        throw new Error(`Failed to send message: ${data.message || 'Unknown error'}`);
+      }
 
-    return data.data;
+      return data.data;
+    }, RETRY_CONFIG_AI, 'sendMessage');
   }
 
   /**
@@ -352,11 +392,12 @@ export class CustomGPTClient {
       payload.agent_capability = agentCapability;
     }
 
-    const response = await fetch(`${url}?${params}`, {
+    // Use longer timeout for streaming (60s) since response takes time
+    const response = await this.fetchWithTimeout(`${url}?${params}`, {
       method: 'POST',
       headers: this.getHeaders(),
       body: JSON.stringify(payload),
-    });
+    }, 60000);
 
     if (!response.ok) {
       throw new Error(`Failed to send message: ${response.status} ${response.statusText}`);
@@ -432,29 +473,37 @@ export class CustomGPTClient {
     const allMessages: MessageData[] = [];
     let page = 1;
     let hasMore = true;
+    const maxPages = 50; // Safety limit to prevent infinite loops
 
     // Fetch all pages of messages in ascending order (oldest first)
-    while (hasMore) {
+    while (hasMore && page <= maxPages) {
       const url = `${this.baseUrl}/projects/${this.projectId}/conversations/${sessionId}/messages?page=${page}&order=asc`;
 
-      const response = await fetch(url, {
-        method: 'GET',
-        headers: this.getHeaders(),
-      });
+      // Each page fetch has retry logic with shorter timeout
+      const pageData = await retryAsync(async () => {
+        const response = await this.fetchWithTimeout(url, {
+          method: 'GET',
+          headers: this.getHeaders(),
+        }, AI_CONFIG.paginationTimeoutMs);
 
-      if (!response.ok) {
-        throw new Error(`Failed to get messages: ${response.status} ${response.statusText}`);
-      }
+        if (!response.ok) {
+          const error = new Error(`Failed to get messages: ${response.status} ${response.statusText}`);
+          (error as any).status = response.status;
+          throw error;
+        }
 
-      const data = await response.json();
+        const data = await response.json();
 
-      if (data.status !== 'success') {
-        throw new Error(`Failed to get messages: ${data.message || 'Unknown error'}`);
-      }
+        if (data.status !== 'success') {
+          throw new Error(`Failed to get messages: ${data.message || 'Unknown error'}`);
+        }
+
+        return data;
+      }, RETRY_CONFIG_AI, `getConversationMessages-page-${page}`);
 
       // CustomGPT returns: { data: { conversation: {...}, messages: { data: [...], last_page: n } } }
-      const messages = data.data?.messages?.data || [];
-      const lastPage = data.data?.messages?.last_page || 1;
+      const messages = pageData.data?.messages?.data || [];
+      const lastPage = pageData.data?.messages?.last_page || 1;
 
       if (Array.isArray(messages)) {
         allMessages.push(...messages);
@@ -463,6 +512,10 @@ export class CustomGPTClient {
       // Check if there are more pages
       hasMore = page < lastPage;
       page++;
+    }
+
+    if (page > maxPages) {
+      console.warn(`[CustomGPT] Reached max page limit (${maxPages}) for conversation ${sessionId}`);
     }
 
     return allMessages;
@@ -493,33 +546,37 @@ export class CustomGPTClient {
 
     console.log('[CustomGPT] Updating message reaction:', { url, payload });
 
-    const response = await fetch(url, {
-      method: 'PUT',
-      headers: this.getHeaders(),
-      body: JSON.stringify(payload),
-    });
+    return retryAsync(async () => {
+      const response = await this.fetchWithTimeout(url, {
+        method: 'PUT',
+        headers: this.getHeaders(),
+        body: JSON.stringify(payload),
+      });
 
-    if (!response.ok) {
-      // Try to get error details from response body
-      let errorDetails = `${response.status} ${response.statusText}`;
-      try {
-        const errorBody = await response.json();
-        errorDetails = errorBody.data?.message || errorBody.message || errorDetails;
-        console.error('[CustomGPT] Feedback API error response:', errorBody);
-      } catch {
-        // Couldn't parse error body
+      if (!response.ok) {
+        // Try to get error details from response body
+        let errorDetails = `${response.status} ${response.statusText}`;
+        try {
+          const errorBody = await response.json();
+          errorDetails = errorBody.data?.message || errorBody.message || errorDetails;
+          console.error('[CustomGPT] Feedback API error response:', errorBody);
+        } catch {
+          // Couldn't parse error body
+        }
+        const error = new Error(`Failed to update reaction: ${errorDetails}`);
+        (error as any).status = response.status;
+        throw error;
       }
-      throw new Error(`Failed to update reaction: ${errorDetails}`);
-    }
 
-    const data: ApiResponse<MessageData> = await response.json();
+      const data: ApiResponse<MessageData> = await response.json();
 
-    if (data.status !== 'success') {
-      throw new Error(`Failed to update reaction: ${data.message || 'Unknown error'}`);
-    }
+      if (data.status !== 'success') {
+        throw new Error(`Failed to update reaction: ${data.message || 'Unknown error'}`);
+      }
 
-    console.log('[CustomGPT] Reaction updated successfully');
-    return data.data;
+      console.log('[CustomGPT] Reaction updated successfully');
+      return data.data;
+    }, RETRY_CONFIG_AI, 'updateMessageReaction');
   }
 
   /**
@@ -533,22 +590,26 @@ export class CustomGPTClient {
     this.ensureConfigured();
     const url = `${this.baseUrl}/projects/${this.projectId}/conversations/${sessionId}/messages/${messageId}?includeInsights=true`;
 
-    const response = await fetch(url, {
-      method: 'GET',
-      headers: this.getHeaders(),
-    });
+    return retryAsync(async () => {
+      const response = await this.fetchWithTimeout(url, {
+        method: 'GET',
+        headers: this.getHeaders(),
+      });
 
-    if (!response.ok) {
-      throw new Error(`Failed to get message insights: ${response.status} ${response.statusText}`);
-    }
+      if (!response.ok) {
+        const error = new Error(`Failed to get message insights: ${response.status} ${response.statusText}`);
+        (error as any).status = response.status;
+        throw error;
+      }
 
-    const data: ApiResponse<MessageData> = await response.json();
+      const data: ApiResponse<MessageData> = await response.json();
 
-    if (data.status !== 'success') {
-      throw new Error(`Failed to get message insights: ${data.message || 'Unknown error'}`);
-    }
+      if (data.status !== 'success') {
+        throw new Error(`Failed to get message insights: ${data.message || 'Unknown error'}`);
+      }
 
-    return data.data;
+      return data.data;
+    }, RETRY_CONFIG_AI, 'getMessageWithInsights');
   }
 
   /**
@@ -561,22 +622,26 @@ export class CustomGPTClient {
     this.ensureConfigured();
     const url = `${this.baseUrl}/projects/${this.projectId}/citations/${citationId}`;
 
-    const response = await fetch(url, {
-      method: 'GET',
-      headers: this.getHeaders(),
-    });
+    return retryAsync(async () => {
+      const response = await this.fetchWithTimeout(url, {
+        method: 'GET',
+        headers: this.getHeaders(),
+      });
 
-    if (!response.ok) {
-      throw new Error(`Failed to get citation: ${response.status} ${response.statusText}`);
-    }
+      if (!response.ok) {
+        const error = new Error(`Failed to get citation: ${response.status} ${response.statusText}`);
+        (error as any).status = response.status;
+        throw error;
+      }
 
-    const data: ApiResponse<any> = await response.json();
+      const data: ApiResponse<any> = await response.json();
 
-    if (data.status !== 'success') {
-      throw new Error(`Failed to get citation: ${data.message || 'Unknown error'}`);
-    }
+      if (data.status !== 'success') {
+        throw new Error(`Failed to get citation: ${data.message || 'Unknown error'}`);
+      }
 
-    return data.data;
+      return data.data;
+    }, RETRY_CONFIG_AI, 'getCitationDetails');
   }
 
   /**
@@ -588,22 +653,26 @@ export class CustomGPTClient {
     this.ensureConfigured();
     const url = `${this.baseUrl}/projects/${this.projectId}/settings`;
 
-    const response = await fetch(url, {
-      method: 'GET',
-      headers: this.getHeaders(),
-    });
+    return retryAsync(async () => {
+      const response = await this.fetchWithTimeout(url, {
+        method: 'GET',
+        headers: this.getHeaders(),
+      });
 
-    if (!response.ok) {
-      throw new Error(`Failed to get agent settings: ${response.status} ${response.statusText}`);
-    }
+      if (!response.ok) {
+        const error = new Error(`Failed to get agent settings: ${response.status} ${response.statusText}`);
+        (error as any).status = response.status;
+        throw error;
+      }
 
-    const data: ApiResponse<AgentSettings> = await response.json();
+      const data: ApiResponse<AgentSettings> = await response.json();
 
-    if (data.status !== 'success') {
-      throw new Error(`Failed to get agent settings: ${data.message || 'Unknown error'}`);
-    }
+      if (data.status !== 'success') {
+        throw new Error(`Failed to get agent settings: ${data.message || 'Unknown error'}`);
+      }
 
-    return data.data;
+      return data.data;
+    }, RETRY_CONFIG_AI, 'getAgentSettings');
   }
 
   /**
@@ -615,22 +684,26 @@ export class CustomGPTClient {
     this.ensureConfigured();
     const url = `${this.baseUrl}/projects/${this.projectId}`;
 
-    const response = await fetch(url, {
-      method: 'GET',
-      headers: this.getHeaders(),
-    });
+    return retryAsync(async () => {
+      const response = await this.fetchWithTimeout(url, {
+        method: 'GET',
+        headers: this.getHeaders(),
+      });
 
-    if (!response.ok) {
-      throw new Error(`Failed to get agent details: ${response.status} ${response.statusText}`);
-    }
+      if (!response.ok) {
+        const error = new Error(`Failed to get agent details: ${response.status} ${response.statusText}`);
+        (error as any).status = response.status;
+        throw error;
+      }
 
-    const data: ApiResponse<AgentDetails> = await response.json();
+      const data: ApiResponse<AgentDetails> = await response.json();
 
-    if (data.status !== 'success') {
-      throw new Error(`Failed to get agent details: ${data.message || 'Unknown error'}`);
-    }
+      if (data.status !== 'success') {
+        throw new Error(`Failed to get agent details: ${data.message || 'Unknown error'}`);
+      }
 
-    return data.data;
+      return data.data;
+    }, RETRY_CONFIG_AI, 'getAgentDetails');
   }
 
   /**
@@ -646,33 +719,38 @@ export class CustomGPTClient {
     const formData = new FormData();
     formData.append('file', file);
 
-    const response = await fetch(url, {
-      method: 'POST',
-      headers: {
-        'accept': 'application/json',
-        'authorization': `Bearer ${this.apiKey}`,
-      },
-      body: formData,
-    });
+    return retryAsync(async () => {
+      // Use longer timeout for file uploads (60s)
+      const response = await this.fetchWithTimeout(url, {
+        method: 'POST',
+        headers: {
+          'accept': 'application/json',
+          'authorization': `Bearer ${this.apiKey}`,
+        },
+        body: formData,
+      }, 60000);
 
-    if (!response.ok) {
-      let errorMessage = `${response.status} ${response.statusText}`;
-      try {
-        const errorBody = await response.json();
-        errorMessage = errorBody.data?.message || errorBody.message || errorMessage;
-      } catch {
-        // Couldn't parse error body
+      if (!response.ok) {
+        let errorMessage = `${response.status} ${response.statusText}`;
+        try {
+          const errorBody = await response.json();
+          errorMessage = errorBody.data?.message || errorBody.message || errorMessage;
+        } catch {
+          // Couldn't parse error body
+        }
+        const error = new Error(`Failed to upload file: ${errorMessage}`);
+        (error as any).status = response.status;
+        throw error;
       }
-      throw new Error(`Failed to upload file: ${errorMessage}`);
-    }
 
-    const data: ApiResponse<SourceData> = await response.json();
+      const data: ApiResponse<SourceData> = await response.json();
 
-    if (data.status !== 'success') {
-      throw new Error(`Failed to upload file: ${data.message || 'Unknown error'}`);
-    }
+      if (data.status !== 'success') {
+        throw new Error(`Failed to upload file: ${data.message || 'Unknown error'}`);
+      }
 
-    return data.data;
+      return data.data;
+    }, RETRY_CONFIG_AI, 'uploadFile');
   }
 
   /**
@@ -684,32 +762,36 @@ export class CustomGPTClient {
     this.ensureConfigured();
     const url = `${this.baseUrl}/projects/${this.projectId}/conversations/${sessionId}`;
 
-    const response = await fetch(url, {
-      method: 'DELETE',
-      headers: {
-        'accept': 'application/json',
-        'authorization': `Bearer ${this.apiKey}`,
-      },
-    });
+    return retryAsync(async () => {
+      const response = await this.fetchWithTimeout(url, {
+        method: 'DELETE',
+        headers: {
+          'accept': 'application/json',
+          'authorization': `Bearer ${this.apiKey}`,
+        },
+      });
 
-    if (!response.ok) {
-      let errorMessage = `${response.status} ${response.statusText}`;
-      try {
-        const errorBody = await response.json();
-        errorMessage = errorBody.data?.message || errorBody.message || errorMessage;
-      } catch {
-        // Couldn't parse error body
+      if (!response.ok) {
+        let errorMessage = `${response.status} ${response.statusText}`;
+        try {
+          const errorBody = await response.json();
+          errorMessage = errorBody.data?.message || errorBody.message || errorMessage;
+        } catch {
+          // Couldn't parse error body
+        }
+        const error = new Error(`Failed to delete conversation: ${errorMessage}`);
+        (error as any).status = response.status;
+        throw error;
       }
-      throw new Error(`Failed to delete conversation: ${errorMessage}`);
-    }
 
-    const data: ApiResponse<{ deleted: boolean }> = await response.json();
+      const data: ApiResponse<{ deleted: boolean }> = await response.json();
 
-    if (data.status !== 'success') {
-      throw new Error(`Failed to delete conversation: ${data.message || 'Unknown error'}`);
-    }
+      if (data.status !== 'success') {
+        throw new Error(`Failed to delete conversation: ${data.message || 'Unknown error'}`);
+      }
 
-    return data.data.deleted;
+      return data.data.deleted;
+    }, RETRY_CONFIG_AI, 'deleteConversation');
   }
 }
 

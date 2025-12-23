@@ -160,6 +160,8 @@
   /* Position from right edge of viewport (matching panel position) */
   right: 32px !important;
   left: auto !important;
+  /* Position below the header - calculate based on typical header height */
+  top: auto !important;
   /* Ensure dropdown appears above other elements */
   z-index: 10000 !important;
   /* Constrain height for compact view */
@@ -176,6 +178,48 @@
 .widget-floating-panel .wishlist-dropdown-content,
 [data-compact-mode="true"] .wishlist-dropdown-content {
   max-height: 320px !important;
+}
+
+/* Mobile: Position dropdown relative to the chat-header for reliable placement */
+@media (max-width: 768px) {
+  /* Make chat-header a positioning context for the dropdown on mobile */
+  .widget-floating-panel .chat-header,
+  [data-compact-mode="true"] .chat-header {
+    position: relative !important;
+    overflow: visible !important;
+  }
+
+  /* Make wishlist container static so dropdown positions relative to chat-header */
+  .widget-floating-panel .wishlist-header-container,
+  [data-compact-mode="true"] .wishlist-header-container {
+    position: static !important;
+  }
+
+  .widget-floating-panel .wishlist-dropdown-panel,
+  [data-compact-mode="true"] .wishlist-dropdown-panel {
+    /* Position relative to the chat-header */
+    position: absolute !important;
+    /* Just below the header */
+    top: 100% !important;
+    /* Align with right edge of header, with some padding */
+    right: 8px !important;
+    left: 8px !important;
+    /* Use auto width to fill available space */
+    width: auto !important;
+    max-width: none !important;
+    max-height: 360px !important;
+    /* Ensure it's above everything else */
+    z-index: 10001 !important;
+    /* Add margin for visual separation */
+    margin-top: 4px !important;
+  }
+
+  /* Override the left positioning for bottom-left panels */
+  .widget-floating-panel.bottom-left .wishlist-dropdown-panel,
+  [data-compact-mode="true"].bottom-left .wishlist-dropdown-panel {
+    right: 8px !important;
+    left: 8px !important;
+  }
 }
 
 /* ============================================
@@ -516,27 +560,25 @@
 }
 
 /* ============================================
-   PRODUCT PREVIEW COMPACT MODE STYLES
-   Force mobile-friendly layouts for product cards in compact/floating mode
+   PRODUCT PREVIEW GRID STYLES
+   Different column counts for different widget modes
    ============================================ */
 
-/* Option A (horizontal): Desktop gets 4 columns in non-floating mode */
+/* Embed mode on desktop: Explicitly set 4 columns for Option A */
 @media (min-width: 768px) {
-  [data-compact-mode="true"]:not(.widget-floating-panel) .demo-products-grid.layout-horizontal {
+  .widget-embed-panel .demo-products-grid.layout-horizontal {
     grid-template-columns: repeat(4, 1fr) !important;
     gap: 10px !important;
   }
 }
 
-/* Floating panel ALWAYS gets 2 columns (higher specificity to override desktop) */
-.widget-floating-panel .demo-products-grid,
+/* Floating panel: ALWAYS 2 columns regardless of screen size */
 .widget-floating-panel .demo-products-grid.layout-horizontal {
-  display: grid !important;
   grid-template-columns: repeat(2, 1fr) !important;
   gap: var(--space-2, 8px) !important;
 }
 
-/* Option C (vertical) stays single column in floating mode */
+/* Floating panel: Option C stays single column */
 .widget-floating-panel .demo-products-grid.layout-vertical {
   grid-template-columns: 1fr !important;
 }

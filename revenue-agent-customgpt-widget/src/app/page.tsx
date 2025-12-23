@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useRef, useCallback } from 'react';
 import dynamic from 'next/dynamic';
 import { useCapabilities } from '@/hooks/useCapabilities';
 import { WIDGET_CONFIG } from '@/config/constants';
@@ -22,6 +22,8 @@ export default function Home() {
   const [activeConversationId, setActiveConversationId] = useState<string | null>(null);
   const [chatKey, setChatKey] = useState(0); // Force remount counter
   const [isChatOpen, setIsChatOpen] = useState(false); // For floating button mode
+  const switchDebounceRef = useRef<NodeJS.Timeout | null>(null);
+  const lastSwitchTimeRef = useRef<number>(0);
 
   // Widget configuration
   const {
@@ -51,8 +53,29 @@ export default function Home() {
     }
   }, [theme]);
 
-  // Handle conversation selection
-  const handleConversationSelect = async (conversationId: string) => {
+  // Handle conversation selection with debouncing to prevent rapid switches
+  const handleConversationSelect = useCallback(async (conversationId: string) => {
+    const now = Date.now();
+    const timeSinceLastSwitch = now - lastSwitchTimeRef.current;
+
+    // Debounce: ignore switches within 300ms of each other
+    if (timeSinceLastSwitch < 300) {
+      console.log('[App] Debouncing conversation switch (too fast)');
+      return;
+    }
+
+    // Clear any pending debounced switch
+    if (switchDebounceRef.current) {
+      clearTimeout(switchDebounceRef.current);
+    }
+
+    // Skip if already on this conversation
+    if (activeConversationId === conversationId) {
+      console.log('[App] Already on conversation:', conversationId);
+      return;
+    }
+
+    lastSwitchTimeRef.current = now;
     console.log('[App] Switching to conversation:', conversationId);
 
     // Save selected conversation to localStorage so ChatContainer loads it
@@ -65,16 +88,25 @@ export default function Home() {
       }
     }
 
-    // Force re-render of ChatContainer with new conversation ID
+    // Batch state updates to prevent multiple re-renders
+    // React 18+ batches these automatically, but being explicit helps clarity
+    // Use functional updates to ensure we get the latest state
     setActiveConversationId(conversationId);
-    // Always increment chatKey to force complete remount, even when selecting
-    // the same conversation again (fixes bug where recent conversation won't load
-    // after viewing other conversations)
     setChatKey(prev => prev + 1);
-  };
+  }, [activeConversationId]);
 
-  // Handle new conversation creation
-  const handleNewConversation = async () => {
+  // Handle new conversation creation with debouncing
+  const handleNewConversation = useCallback(async () => {
+    const now = Date.now();
+    const timeSinceLastSwitch = now - lastSwitchTimeRef.current;
+
+    // Debounce: ignore if too soon after last switch
+    if (timeSinceLastSwitch < 300) {
+      console.log('[App] Debouncing new conversation (too fast)');
+      return;
+    }
+
+    lastSwitchTimeRef.current = now;
     console.log('[App] Creating new conversation');
 
     // Clear localStorage to force ChatContainer to create new conversation
@@ -92,7 +124,7 @@ export default function Home() {
     setActiveConversationId(null);
     setChatKey(prev => prev + 1);
     console.log('[App] Forcing ChatContainer remount for new conversation');
-  };
+  }, []);
 
   // Loading screen
   if (loading) {

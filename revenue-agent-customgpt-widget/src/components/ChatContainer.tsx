@@ -150,6 +150,10 @@ const ChatContainer = ({ onVoiceMode, theme, capabilities }: ChatContainerProps)
 
   // Create or restore conversation on mount
   useEffect(() => {
+    // AbortController for cleanup on unmount or rapid switching
+    const abortController = new AbortController();
+    let isMounted = true;
+
     const initConversation = async () => {
       // Check for existing conversation in localStorage
       const stored = loadConversation();
@@ -157,10 +161,17 @@ const ChatContainer = ({ onVoiceMode, theme, capabilities }: ChatContainerProps)
       if (stored?.sessionId) {
         // Try to restore existing conversation
         try {
-          const response = await fetch(`/api/chat/conversations/${stored.sessionId}`);
+          const response = await fetch(`/api/chat/conversations/${stored.sessionId}`, {
+            signal: abortController.signal,
+          });
+
+          // Check if component was unmounted during fetch
+          if (!isMounted) return;
 
           if (response.ok) {
             const data = await response.json();
+            if (!isMounted) return;
+
             setSessionId(stored.sessionId);
 
             // Restore messages if available
@@ -179,14 +190,20 @@ const ChatContainer = ({ onVoiceMode, theme, capabilities }: ChatContainerProps)
               // Fetch citation details for restored messages with citations
               const fetchCitationsForRestoredMessages = async () => {
                 for (const msg of restoredMessages) {
+                  // Check if aborted before each iteration
+                  if (abortController.signal.aborted || !isMounted) return;
+
                   if (msg.role === 'assistant' && msg.citations && msg.citations.length > 0) {
                     try {
                       const citationPromises = msg.citations.map((id: number) =>
-                        fetch(`/api/chat/citations/${id}`)
+                        fetch(`/api/chat/citations/${id}`, { signal: abortController.signal })
                           .then(res => res.ok ? res.json() : null)
                           .catch(() => null)
                       );
                       const results = await Promise.all(citationPromises);
+
+                      if (!isMounted) return;
+
                       const citationDetails = results.filter((c): c is Citation => c !== null);
 
                       if (citationDetails.length > 0) {
@@ -196,7 +213,9 @@ const ChatContainer = ({ onVoiceMode, theme, capabilities }: ChatContainerProps)
                           )
                         );
                       }
-                    } catch (error) {
+                    } catch (error: any) {
+                      // Ignore abort errors
+                      if (error.name === 'AbortError') return;
                       console.error('[Citations] Failed to fetch for message:', msg.id, error);
                     }
                   }
@@ -207,7 +226,9 @@ const ChatContainer = ({ onVoiceMode, theme, capabilities }: ChatContainerProps)
             console.log('[ChatContainer] Restored conversation:', stored.sessionId);
             return;
           }
-        } catch (error) {
+        } catch (error: any) {
+          // Ignore abort errors
+          if (error.name === 'AbortError') return;
           console.error('[ChatContainer] Failed to restore conversation:', error);
           // Clear invalid stored conversation
           clearConversation();
@@ -218,22 +239,35 @@ const ChatContainer = ({ onVoiceMode, theme, capabilities }: ChatContainerProps)
       try {
         const response = await fetch('/api/chat/conversations', {
           method: 'POST',
-          headers: { 'Content-Type': 'application/json' }
+          headers: { 'Content-Type': 'application/json' },
+          signal: abortController.signal,
         });
+
+        if (!isMounted) return;
 
         if (!response.ok) throw new Error('Failed to create conversation');
 
         const data = await response.json();
+        if (!isMounted) return;
+
         setSessionId(data.session_id);
         // Save to localStorage for persistence
         saveConversation(data.session_id);
         console.log('[ChatContainer] Created new conversation:', data.session_id);
-      } catch (error) {
+      } catch (error: any) {
+        // Ignore abort errors
+        if (error.name === 'AbortError') return;
         console.error('Failed to create conversation:', error);
       }
     };
 
     initConversation();
+
+    // Cleanup: abort pending requests on unmount
+    return () => {
+      isMounted = false;
+      abortController.abort();
+    };
   }, []);
 
   // Fetch citation details in parallel

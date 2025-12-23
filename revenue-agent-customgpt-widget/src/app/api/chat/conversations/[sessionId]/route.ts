@@ -19,6 +19,16 @@ export async function GET(
       );
     }
 
+    // Validate sessionId format (UUID format)
+    const uuidRegex = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+    if (!uuidRegex.test(sessionId)) {
+      console.warn('[API] Invalid session ID format:', sessionId);
+      return NextResponse.json(
+        { error: 'Invalid session ID format' },
+        { status: 400 }
+      );
+    }
+
     // Get messages from CustomGPT API
     const messages = await customGPTClient.getConversationMessages(sessionId);
 
@@ -57,14 +67,28 @@ export async function GET(
       success: true,
       messages: transformedMessages,
     });
-  } catch (error) {
+  } catch (error: any) {
     console.error('[API] Error fetching conversation messages:', error);
+
+    // Determine appropriate status code based on error
+    let statusCode = 500;
+    const errorMessage = error instanceof Error ? error.message : 'Failed to fetch messages';
+
+    // Check for specific error types
+    if (errorMessage.includes('timeout')) {
+      statusCode = 504; // Gateway Timeout
+    } else if (errorMessage.includes('404') || errorMessage.includes('not found')) {
+      statusCode = 404; // Not Found
+    } else if (error.status >= 400 && error.status < 500) {
+      statusCode = error.status; // Pass through client errors
+    }
 
     return NextResponse.json(
       {
-        error: error instanceof Error ? error.message : 'Failed to fetch messages',
+        error: errorMessage,
+        code: statusCode === 504 ? 'TIMEOUT' : statusCode === 404 ? 'NOT_FOUND' : 'SERVER_ERROR',
       },
-      { status: 500 }
+      { status: statusCode }
     );
   }
 }

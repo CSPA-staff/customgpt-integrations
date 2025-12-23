@@ -65,6 +65,10 @@ export const AI_CONFIG = {
   voiceMaxTokens: parseNumber(process.env.AI_VOICE_MAX_TOKENS, 150),
   vadPositiveSpeechThreshold: parseFloat(process.env.VAD_POSITIVE_SPEECH_THRESHOLD, 0.90),
   vadNegativeSpeechThreshold: parseFloat(process.env.VAD_NEGATIVE_SPEECH_THRESHOLD, 0.75),
+  // API timeout configuration
+  apiTimeoutMs: parseNumber(process.env.CUSTOMGPT_API_TIMEOUT_MS, 30000),
+  // Pagination timeout (per page)
+  paginationTimeoutMs: parseNumber(process.env.CUSTOMGPT_PAGINATION_TIMEOUT_MS, 15000),
 } as const;
 
 // ============================================
