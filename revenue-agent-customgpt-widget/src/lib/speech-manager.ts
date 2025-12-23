@@ -18,10 +18,39 @@ let hasAwardedVoicePoints = false;
 let conversationHistory = btoa('[]');  // Base64 encoded conversation history
 let currentAudioElement: HTMLAudioElement | null = null;
 
+// Deduplication: prevent double processing from multiple VAD instances
+let isProcessingSpeech = false;
+let lastProcessedAudioLength = 0;
+let lastProcessedTime = 0;
+
 export const processSpeech = async (audio: Float32Array) => {
-    const blob = createAudioBlob(audio);
-    await validate(blob);
-    await sendData(blob);
+    // Deduplication: prevent double processing from multiple VAD instances
+    const now = Date.now();
+    const audioLength = audio.length;
+
+    // Skip if we're already processing, or if this looks like a duplicate
+    // (same audio length within 500ms is likely a duplicate from another VAD instance)
+    if (isProcessingSpeech) {
+        console.log('[Speech] ⏭️ Skipping duplicate - already processing');
+        return;
+    }
+
+    if (audioLength === lastProcessedAudioLength && now - lastProcessedTime < 500) {
+        console.log('[Speech] ⏭️ Skipping duplicate - same audio length within 500ms');
+        return;
+    }
+
+    isProcessingSpeech = true;
+    lastProcessedAudioLength = audioLength;
+    lastProcessedTime = now;
+
+    try {
+        const blob = createAudioBlob(audio);
+        await validate(blob);
+        await sendData(blob);
+    } finally {
+        isProcessingSpeech = false;
+    }
 };
 
 const createAudioBlob = (audio: Float32Array) => {
@@ -263,8 +292,18 @@ const playAudioWithCaption = async (audioUrl: string, aiResponse: string) => {
     }
 };
 
+// Deduplication for speech start events
+let isSpeechActive = false;
+
 // Export functions for VAD integration
 export const onSpeechStart = () => {
+    // Skip if speech is already active (duplicate from another VAD instance)
+    if (isSpeechActive) {
+        console.log('[VAD] ⏭️ Skipping duplicate speech start');
+        return;
+    }
+
+    isSpeechActive = true;
     console.log('[VAD] Speech started');
 
     // Award points for using voice mode (once per session) - only if gamification is enabled
@@ -287,9 +326,15 @@ export const onSpeechStart = () => {
     }
 };
 
-export const onSpeechEnd = processSpeech;
+export const onSpeechEnd = async (audio: Float32Array) => {
+    // Reset speech active state
+    isSpeechActive = false;
+    await processSpeech(audio);
+};
 
 export const onMisfire = () => {
+    // Reset speech active state
+    isSpeechActive = false;
     console.log('[VAD] Misfire detected');
 
     if ((window as any).particleActions) {
