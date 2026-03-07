@@ -18,7 +18,7 @@
     "edge-tts": "^1.0.1",
     "formdata-node": "^6.0.3",
     "google-tts-api": "^2.0.2",
-    "next": "16.0.1",
+    "next": "16.0.10",
     "openai": "^6.7.0",
     "react": "19.2.0",
     "react-dom": "19.2.0",
