@@ -215,42 +215,42 @@
    ============================================ */
 
 .light-theme {
-  /* Primary Colors (slightly darker for light mode) */
-  --color-primary: #7c3aed;
-  --color-primary-hover: #6d28d9;
-  --color-primary-active: #5b21b6;
+  /* Primary Colors (CSPA) */
+  --color-primary: #19aa99;
+  --color-primary-hover: #159688;
+  --color-primary-active: #11786d;
 
   /* Background Colors - Light Theme */
   --bg-primary: #ffffff;
-  --bg-secondary: #f8fafc;
-  --bg-tertiary: #f1f5f9;
-  --bg-elevated: rgba(0, 0, 0, 0.02);
-  --bg-sunken: rgba(0, 0, 0, 0.05);
-  --bg-overlay: rgba(0, 0, 0, 0.3);
+  --bg-secondary: #f8fbfb;
+  --bg-tertiary: #eef7f6;
+  --bg-elevated: rgba(14, 35, 51, 0.04);
+  --bg-sunken: rgba(14, 35, 51, 0.06);
+  --bg-overlay: rgba(14, 35, 51, 0.30);
 
   /* Gradient Colors - Light Theme */
-  --color-gradient-start: #f0f4ff;
-  --color-gradient-end: #fef3f8;
+  --color-gradient-start: #ffffff;
+  --color-gradient-end: #c7eae6;
 
   /* Text Colors - Light Theme */
-  --text-primary: #1a202c;
-  --text-secondary: #4a5568;
-  --text-tertiary: #718096;
-  --text-muted: #a0aec0;
-  --text-inverse: #f8fafc;
+  --text-primary: #0e2333;
+  --text-secondary: #35505c;
+  --text-tertiary: #5f7882;
+  --text-muted: #8aa0a6;
+  --text-inverse: #ffffff;
   --text-on-surface: var(--text-primary);
-  --text-on-surface-muted: rgba(26, 32, 44, 0.7);
-  --text-on-light: #1a1a1a;
+  --text-on-surface-muted: rgba(14, 35, 51, 0.7);
+  --text-on-light: #0e2333;
 
   /* Border Colors - Light Theme */
-  --border-primary: rgba(0, 0, 0, 0.1);
-  --border-secondary: rgba(0, 0, 0, 0.05);
-  --border-subtle-light: rgba(0, 0, 0, 0.3);
+  --border-primary: rgba(14, 35, 51, 0.10);
+  --border-secondary: rgba(14, 35, 51, 0.05);
+  --border-subtle-light: rgba(14, 35, 51, 0.22);
 
   /* Background Colors - Light Theme Additions */
-  --bg-surface: rgba(0, 0, 0, 0.1);
-  --bg-surface-hover: rgba(0, 0, 0, 0.05);
-  --bg-caption: rgba(255, 255, 255, 0.90);
+  --bg-surface: rgba(14, 35, 51, 0.06);
+  --bg-surface-hover: rgba(25, 170, 153, 0.08);
+  --bg-caption: rgba(255, 255, 255, 0.92);
   --bg-button-active: var(--color-primary);
 }
 
