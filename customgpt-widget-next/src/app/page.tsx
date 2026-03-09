@@ -10,7 +10,7 @@ const VoiceMode = dynamic(() => import('@/components/VoiceMode'), { ssr: false }
 
 export default function Home() {
   const [mode, setMode] = useState<'chat' | 'voice'>('chat');
-  const [theme, setTheme] = useState<'light' | 'dark'>('dark');
+  const [theme, setTheme] = useState<'light' | 'dark'>('light');
 
   // Fetch system capabilities
   const { capabilities, loading, error } = useCapabilities();
