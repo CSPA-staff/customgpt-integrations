@@ -424,7 +424,6 @@ const ChatContainer = ({ onVoiceMode, theme, capabilities }: ChatContainerProps)
     }
     // Older messages show full date
     return date.toLocaleDateString('en-US', { month: 'short', day: 'numeric', hour: 'numeric', minute: '2-digit' });
-  };
 
   const getFullTimestamp = (timestamp: number) => {
     const date = new Date(timestamp);
@@ -465,7 +464,7 @@ const ChatContainer = ({ onVoiceMode, theme, capabilities }: ChatContainerProps)
           body: JSON.stringify({
             session_id: sessionId,
             message: question,
-            stream: false;
+            stream: false,
           })
         });
 
