@@ -9,18 +9,7 @@ import { useTTS } from '@/hooks/useTTS';
 import { useAgentSettings } from '@/hooks/useAgentSettings';
 import { stripMarkdown } from '@/utils/textProcessing';
 import { SystemCapabilities } from '@/hooks/useCapabilities';
-// Agent capability types for query-level model selection
-type AgentCapability =
-  | 'fastest-responses'
-  | 'optimal-choice'
-  | 'advanced-reasoning'
-  | 'complex-tasks';
 
-const AGENT_CAPABILITIES: { value: AgentCapability; label: string; description: string }[] = [
-  { value: 'fastest-responses', label: 'Fastest', description: 'Quick responses for simple queries' },
-  { value: 'optimal-choice', label: 'Optimal', description: 'Balanced speed and quality' },
-  { value: 'advanced-reasoning', label: 'Advanced', description: 'Enhanced reasoning capabilities' },
-  { value: 'complex-tasks', label: 'Complex', description: 'Most capable for complex tasks' },
 ];
 import './ChatContainer.css';
 
@@ -61,9 +50,6 @@ interface Message {
   timestamp: number;
   id: string;
   response_feedback?: ResponseFeedback | null;
-  citations?: number[];  // Array of citation IDs from API
-  citationDetails?: Citation[];  // Fetched citation metadata
-  customerIntelligence?: CustomerIntelligence | null;  // Customer insights data
 }
 
 interface ChatContainerProps {
@@ -94,21 +80,11 @@ const ChatContainer = ({ onVoiceMode, theme, capabilities }: ChatContainerProps)
   const [input, setInput] = useState('');
   const [isLoading, setIsLoading] = useState(false);
   const [sessionId, setSessionId] = useState<string | null>(null);
-  const [expandedMessages, setExpandedMessages] = useState<Set<string>>(new Set());
-  const [expandedCitations, setExpandedCitations] = useState<Set<string>>(new Set());
-  const [expandedInsights, setExpandedInsights] = useState<Set<string>>(new Set());
-  const [loadingInsights, setLoadingInsights] = useState<Set<string>>(new Set());
   const [copiedMessageId, setCopiedMessageId] = useState<string | null>(null);
   const [reactingMessageId, setReactingMessageId] = useState<string | null>(null);
   const [isRecording, setIsRecording] = useState(false);
   const [isTranscribing, setIsTranscribing] = useState(false);
-  const [selectedCapability, setSelectedCapability] = useState<AgentCapability>('optimal-choice');
-  const [showPlusMenu, setShowPlusMenu] = useState(false);
-  const [showCapabilitySubmenu, setShowCapabilitySubmenu] = useState(false);
-  const [isUploading, setIsUploading] = useState(false);
-  const [uploadStatus, setUploadStatus] = useState<{ type: 'success' | 'error'; message: string } | null>(null);
   const messagesEndRef = useRef<HTMLDivElement>(null);
-  const fileInputRef = useRef<HTMLInputElement>(null);
   const messagesContainerRef = useRef<HTMLDivElement>(null);
   const mediaRecorderRef = useRef<MediaRecorder | null>(null);
   const audioChunksRef = useRef<Blob[]>([]);
@@ -157,167 +133,6 @@ const ChatContainer = ({ onVoiceMode, theme, capabilities }: ChatContainerProps)
     createConversation();
   }, []);
 
-  // Fetch customer intelligence insights for a message with retry logic
-  // The API needs ~5-8 seconds to process customer intelligence after message is sent
-  const fetchCustomerInsights = async (messageId: string, numericId: number, retryCount = 0): Promise<CustomerIntelligence | null> => {
-    if (!sessionId) {
-      console.log('[Insights] No sessionId available');
-      return null;
-    }
-
-    const MAX_RETRIES = 3;
-    const RETRY_DELAY = 3000; // 3 seconds between retries
-
-    try {
-      console.log(`[Insights] Fetching insights for message ${numericId} with session ${sessionId} (attempt ${retryCount + 1}/${MAX_RETRIES + 1})`);
-      const response = await fetch(`/api/chat/messages/${numericId}/insights?session_id=${sessionId}`);
-      if (!response.ok) {
-        console.error(`[Insights] Failed to fetch insights for message ${numericId}: ${response.status}`);
-        return null;
-      }
-      const data = await response.json();
-      console.log('[Insights] Received data:', data);
-
-      // If no insights yet and we haven't exceeded retries, wait and try again
-      if (!data.customer_intelligence && retryCount < MAX_RETRIES) {
-        console.log(`[Insights] No data yet, retrying in ${RETRY_DELAY}ms...`);
-        await new Promise(resolve => setTimeout(resolve, RETRY_DELAY));
-        return fetchCustomerInsights(messageId, numericId, retryCount + 1);
-      }
-
-      return data.customer_intelligence || null;
-    } catch (error) {
-      console.error(`[Insights] Error fetching insights:`, error);
-      return null;
-    }
-  };
-
-  // Toggle insights panel and fetch data if needed
-  const toggleInsights = async (messageId: string) => {
-    const numericId = parseInt(messageId.replace('msg-', ''));
-    console.log(`[Insights] Toggle called for ${messageId}, numericId: ${numericId}`);
-
-    // Check if already expanded - just collapse
-    if (expandedInsights.has(messageId)) {
-      setExpandedInsights(prev => {
-        const newSet = new Set(prev);
-        newSet.delete(messageId);
-        return newSet;
-      });
-      return;
-    }
-
-    // Check if we already have insights data
-    const message = messages.find(m => m.id === messageId);
-    if (message?.customerIntelligence) {
-      console.log('[Insights] Already have data, just expanding');
-      setExpandedInsights(prev => new Set(prev).add(messageId));
-      return;
-    }
-
-    // Fetch insights
-    console.log('[Insights] Fetching new insights...');
-    setLoadingInsights(prev => new Set(prev).add(messageId));
-    setExpandedInsights(prev => new Set(prev).add(messageId));
-
-    const insights = await fetchCustomerInsights(messageId, numericId);
-    console.log('[Insights] Setting insights to state:', insights);
-
-    if (insights) {
-      // Update messages state with insights and clear loading in one go
-      setMessages(prev => prev.map(msg =>
-        msg.id === messageId
-          ? { ...msg, customerIntelligence: insights }
-          : msg
-      ));
-    }
-
-    // Clear loading state after a small delay to ensure state update propagates
-    setTimeout(() => {
-      setLoadingInsights(prev => {
-        const newSet = new Set(prev);
-        newSet.delete(messageId);
-        return newSet;
-      });
-    }, 100);
-  };
-
-  // Helper to get emotion color class
-  const getEmotionColor = (emotion?: string): string => {
-    const emotions: Record<string, string> = {
-      'neutral': 'neutral',
-      'frustration': 'negative',
-      'happiness': 'positive',
-      'confusion': 'warning',
-      'anger': 'negative',
-      'satisfaction': 'positive',
-      'curiosity': 'neutral',
-      'excitement': 'positive',
-    };
-    return emotions[emotion?.toLowerCase() || ''] || 'neutral';
-  };
-
-  // Helper to get intent color class
-  const getIntentColor = (intent?: string): string => {
-    const intents: Record<string, string> = {
-      'transactional': 'transactional',
-      'informational': 'informational',
-      'troubleshooting': 'troubleshooting',
-      'navigational': 'navigational',
-      'support': 'support',
-      'feedback': 'feedback',
-    };
-    return intents[intent?.toLowerCase() || ''] || 'default';
-  };
-
-  // Helper to check if there are any risk flags
-  const hasRiskFlags = (intel?: CustomerIntelligence | null): boolean => {
-    if (!intel) return false;
-    return intel.risk_jailbreak !== 'no_event' ||
-           intel.risk_prompt_leakage !== 'no_event' ||
-           intel.risk_profanity !== 'no_event';
-  };
-
-  // Fetch citation details in parallel
-  const fetchCitationDetails = async (citationIds: number[]): Promise<Citation[]> => {
-    if (!citationIds || citationIds.length === 0) {
-      console.log('[Citations] No citation IDs provided');
-      return [];
-    }
-
-    console.log('[Citations] Fetching details for IDs:', citationIds);
-
-    try {
-      // Fetch all citations in parallel
-      const citationPromises = citationIds.map(id =>
-        fetch(`/api/chat/citations/${id}`)
-          .then(res => {
-            if (!res.ok) {
-              console.error(`[Citations] Failed to fetch citation ${id}: ${res.status}`);
-              return null;
-            }
-            return res.json();
-          })
-          .catch(err => {
-            console.error(`[Citations] Error fetching citation ${id}:`, err);
-            return null;
-          })
-      );
-
-      const results = await Promise.all(citationPromises);
-      console.log('[Citations] Fetch results:', results);
-
-      // Filter out failed requests and return valid citations
-      const validCitations = results.filter((c): c is Citation => c !== null);
-      console.log('[Citations] Valid citations count:', validCitations.length);
-
-      return validCitations;
-    } catch (error) {
-      console.error('[Citations] Failed to fetch citations:', error);
-      return [];
-    }
-  };
-
   const handleSend = async () => {
     if (!input.trim() || isLoading || !sessionId) return;
 
@@ -341,7 +156,6 @@ const ChatContainer = ({ onVoiceMode, theme, capabilities }: ChatContainerProps)
           session_id: sessionId,
           message: currentInput,
           stream: false,
-          agent_capability: selectedCapability
         })
       });
 
@@ -493,18 +307,6 @@ const ChatContainer = ({ onVoiceMode, theme, capabilities }: ChatContainerProps)
     }
   };
 
-  const toggleExpanded = (messageId: string) => {
-    setExpandedMessages(prev => {
-      const newSet = new Set(prev);
-      if (newSet.has(messageId)) {
-        newSet.delete(messageId);
-      } else {
-        newSet.add(messageId);
-      }
-      return newSet;
-    });
-  };
-
   const copyToClipboard = async (content: string, messageId: string) => {
     try {
       await navigator.clipboard.writeText(content);
@@ -639,15 +441,7 @@ const ChatContainer = ({ onVoiceMode, theme, capabilities }: ChatContainerProps)
       second: '2-digit'
     });
   };
-
-  const shouldTruncate = (content: string) => {
-    return content.length > 300;
-  };
-
-  const getTruncatedContent = (content: string) => {
-    return content.slice(0, 300) + '...';
-  };
-
+  
   const handleStarterQuestionClick = (question: string) => {
     if (isLoading || !sessionId) return;
 
@@ -896,11 +690,7 @@ const ChatContainer = ({ onVoiceMode, theme, capabilities }: ChatContainerProps)
           </div>
         )}
         {messages.map((msg) => {
-          const isExpanded = expandedMessages.has(msg.id);
-          const needsTruncation = shouldTruncate(msg.content);
-          const displayContent = needsTruncation && !isExpanded
-            ? getTruncatedContent(msg.content)
-            : msg.content;
+          const displayContent = msg.content;
 
           return (
             <div key={msg.id} className={`message ${msg.role}`}>
@@ -961,13 +751,7 @@ const ChatContainer = ({ onVoiceMode, theme, capabilities }: ChatContainerProps)
                   >
                     {displayContent}
                   </ReactMarkdown>
-                  {needsTruncation && (
-                    <button
-                      className="read-more-inline"
-                      onClick={() => toggleExpanded(msg.id)}
-                    >
-                      {isExpanded ? 'Show Less ↑' : 'Read More ↓'}
-                    </button>
+                
                   )}
                   <span
                     className="message-timestamp"
@@ -977,209 +761,6 @@ const ChatContainer = ({ onVoiceMode, theme, capabilities }: ChatContainerProps)
                   </span>
                 </div>
 
-                {/* Citations Section */}
-                {msg.role === 'assistant' && msg.citations && msg.citations.length > 0 && (
-                  <div className="message-citations">
-                    <button
-                      className="citations-header"
-                      onClick={() => {
-                        setExpandedCitations(prev => {
-                          const newSet = new Set(prev);
-                          if (newSet.has(msg.id)) {
-                            newSet.delete(msg.id);
-                          } else {
-                            newSet.add(msg.id);
-                          }
-                          return newSet;
-                        });
-                      }}
-                      aria-expanded={expandedCitations.has(msg.id)}
-                    >
-                      <span aria-hidden="true">📚</span>
-                      <span>SOURCES</span>
-                      <span className="citations-count">({msg.citations.length})</span>
-                      <svg
-                        viewBox="0 0 24 24"
-                        fill="currentColor"
-                        width="16"
-                        height="16"
-                        className={`citations-toggle-icon ${expandedCitations.has(msg.id) ? 'expanded' : ''}`}
-                      >
-                        <path d="M7.41 8.59L12 13.17l4.59-4.58L18 10l-6 6-6-6 1.41-1.41z"/>
-                      </svg>
-                    </button>
-
-                    {expandedCitations.has(msg.id) && (
-                      <>
-                        {/* Loading State */}
-                        {!msg.citationDetails || msg.citationDetails.length === 0 ? (
-                          <div className="citations-loading">
-                            <svg viewBox="0 0 24 24" fill="currentColor" width="16" height="16" className="spinner">
-                              <path d="M12,4V2A10,10 0 0,0 2,12H4A8,8 0 0,1 12,4Z"/>
-                            </svg>
-                            <span>Loading sources...</span>
-                          </div>
-                        ) : (
-                          <div className="citations-list" role="list">
-                        {msg.citationDetails.map((citation, index) => (
-                          <a
-                            key={citation.id}
-                            href={citation.url}
-                            target="_blank"
-                            rel="noopener noreferrer"
-                            className="citation-card"
-                            role="listitem"
-                            aria-label={`Source ${index + 1}: ${citation.title}`}
-                          >
-                            {citation.image && (
-                              <img
-                                src={citation.image}
-                                alt={citation.title}
-                                className="citation-image"
-                                loading="lazy"
-                              />
-                            )}
-                            <div className="citation-content">
-                              <div className="citation-number">[{index + 1}]</div>
-                              <h4 className="citation-title">{citation.title}</h4>
-                              {citation.description && (
-                                <p className="citation-description">{citation.description}</p>
-                              )}
-                              <span className="citation-url">
-                                {new URL(citation.url).hostname} ↗
-                              </span>
-                            </div>
-                          </a>
-                        ))}
-                          </div>
-                        )}
-
-                        {/* Partial Failure Warning */}
-                        {msg.citationDetails && msg.citationDetails.length > 0 && msg.citationDetails.length < msg.citations.length && (
-                          <div className="citations-warning">
-                            ⚠️ {msg.citations.length - msg.citationDetails.length} source{msg.citations.length - msg.citationDetails.length !== 1 ? 's' : ''} unavailable
-                          </div>
-                        )}
-                      </>
-                    )}
-                  </div>
-                )}
-
-                {/* Customer Intelligence Section */}
-                {msg.role === 'assistant' && msg.id.startsWith('msg-') && (
-                  <div className="message-insights">
-                    <button
-                      className="insights-header"
-                      onClick={() => toggleInsights(msg.id)}
-                      aria-expanded={expandedInsights.has(msg.id)}
-                    >
-                      <svg viewBox="0 0 24 24" fill="currentColor" width="14" height="14">
-                        <path d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm-2 15l-5-5 1.41-1.41L10 14.17l7.59-7.59L19 8l-9 9z"/>
-                      </svg>
-                      <span>Customer Intelligence</span>
-                      {msg.customerIntelligence && hasRiskFlags(msg.customerIntelligence) && (
-                        <span className="insights-risk-badge" title="Risk detected">!</span>
-                      )}
-                      <svg
-                        viewBox="0 0 24 24"
-                        fill="currentColor"
-                        width="16"
-                        height="16"
-                        className={`insights-toggle-icon ${expandedInsights.has(msg.id) ? 'expanded' : ''}`}
-                      >
-                        <path d="M7.41 8.59L12 13.17l4.59-4.58L18 10l-6 6-6-6 1.41-1.41z"/>
-                      </svg>
-                    </button>
-
-                    {expandedInsights.has(msg.id) && (
-                      <div className="insights-content">
-                        {loadingInsights.has(msg.id) ? (
-                          <div className="insights-loading">
-                            <svg viewBox="0 0 24 24" fill="currentColor" width="16" height="16" className="spinner">
-                              <path d="M12,4V2A10,10 0 0,0 2,12H4A8,8 0 0,1 12,4Z"/>
-                            </svg>
-                            <span>Analyzing...</span>
-                          </div>
-                        ) : msg.customerIntelligence ? (
-                          <div className="insights-grid">
-                            {/* Emotion */}
-                            <div className={`insight-card emotion-${getEmotionColor(msg.customerIntelligence.user_emotion)}`}>
-                              <div className="insight-details">
-                                <span className="insight-label">Emotion</span>
-                                <span className="insight-value">{msg.customerIntelligence.user_emotion || 'Unknown'}</span>
-                              </div>
-                            </div>
-
-                            {/* Intent */}
-                            <div className={`insight-card intent-${getIntentColor(msg.customerIntelligence.user_intent)}`}>
-                              <div className="insight-details">
-                                <span className="insight-label">Intent</span>
-                                <span className="insight-value">{msg.customerIntelligence.user_intent || 'Unknown'}</span>
-                              </div>
-                            </div>
-
-                            {/* Location */}
-                            <div className="insight-card">
-                              <div className="insight-details">
-                                <span className="insight-label">Location</span>
-                                <span className="insight-value">{msg.customerIntelligence.country || msg.customerIntelligence.user_location || 'Unknown'}</span>
-                              </div>
-                            </div>
-
-                            {/* Language */}
-                            <div className="insight-card">
-                              <div className="insight-details">
-                                <span className="insight-label">Language</span>
-                                <span className="insight-value">{msg.customerIntelligence.language || 'Unknown'}</span>
-                              </div>
-                            </div>
-
-                            {/* Content Source */}
-                            <div className="insight-card">
-                              <div className="insight-details">
-                                <span className="insight-label">Content Source</span>
-                                <span className="insight-value">{msg.customerIntelligence.content_source || 'Unknown'}</span>
-                              </div>
-                            </div>
-
-                            {/* Response Quality */}
-                            <div className={`insight-card quality-${msg.customerIntelligence.risk_fidelity?.toLowerCase() === 'good' ? 'good' : 'warning'}`}>
-                              <div className="insight-details">
-                                <span className="insight-label">Response Quality</span>
-                                <span className="insight-value">{msg.customerIntelligence.risk_fidelity || 'Unknown'}</span>
-                              </div>
-                            </div>
-
-                            {/* Security Monitoring Section - Always show */}
-                            <div className={`insight-card security-card full-width ${hasRiskFlags(msg.customerIntelligence) ? 'has-risks' : 'all-clear'}`}>
-                              <div className="insight-details">
-                                <span className="insight-label">Security Monitoring</span>
-                                <div className="security-flags">
-                                  <span className={`security-flag ${msg.customerIntelligence.risk_jailbreak === 'no_event' ? 'clear' : 'alert'}`}>
-                                    <span className="flag-indicator"></span>
-                                    Jailbreak: {msg.customerIntelligence.risk_jailbreak === 'no_event' ? 'Clear' : 'Detected'}
-                                  </span>
-                                  <span className={`security-flag ${msg.customerIntelligence.risk_prompt_leakage === 'no_event' ? 'clear' : 'alert'}`}>
-                                    <span className="flag-indicator"></span>
-                                    Prompt Leakage: {msg.customerIntelligence.risk_prompt_leakage === 'no_event' ? 'Clear' : 'Detected'}
-                                  </span>
-                                  <span className={`security-flag ${msg.customerIntelligence.risk_profanity === 'no_event' ? 'clear' : 'alert'}`}>
-                                    <span className="flag-indicator"></span>
-                                    Profanity: {msg.customerIntelligence.risk_profanity === 'no_event' ? 'Clear' : 'Detected'}
-                                  </span>
-                                </div>
-                              </div>
-                            </div>
-                          </div>
-                        ) : (
-                          <div className="insights-empty">
-                            <span>No insights available for this message</span>
-                          </div>
-                        )}
-                      </div>
-                    )}
-                  </div>
-                )}
 
                 <div className="message-actions">
                   {msg.role === 'assistant' && (
