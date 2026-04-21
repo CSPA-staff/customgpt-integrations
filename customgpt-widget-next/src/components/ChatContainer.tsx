@@ -9,8 +9,6 @@ import { useTTS } from '@/hooks/useTTS';
 import { useAgentSettings } from '@/hooks/useAgentSettings';
 import { stripMarkdown } from '@/utils/textProcessing';
 import { SystemCapabilities } from '@/hooks/useCapabilities';
-
-];
 import './ChatContainer.css';
 
 interface ResponseFeedback {
@@ -75,7 +73,6 @@ const ChatContainer = ({ onVoiceMode, theme, capabilities }: ChatContainerProps)
     ? `/api/proxy/image?url=${encodeURIComponent(agentSettings.chatbot_avatar)}`
     : undefined;
   const exampleQuestions = agentSettings?.example_questions || [];
-
   const [messages, setMessages] = useState<Message[]>([]);
   const [input, setInput] = useState('');
   const [isLoading, setIsLoading] = useState(false);
