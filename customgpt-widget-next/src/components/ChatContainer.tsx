@@ -468,8 +468,7 @@ const ChatContainer = ({ onVoiceMode, theme, capabilities }: ChatContainerProps)
           body: JSON.stringify({
             session_id: sessionId,
             message: question,
-            stream: false,
-            agent_capability: selectedCapability
+            stream: false;
           })
         });
 
@@ -561,58 +560,6 @@ const ChatContainer = ({ onVoiceMode, theme, capabilities }: ChatContainerProps)
       console.error('Failed to start new conversation:', error);
       alert('Failed to start new conversation. Please try again.');
     }
-  };
-
-  const handleFileUpload = async (event: React.ChangeEvent<HTMLInputElement>) => {
-    const file = event.target.files?.[0];
-    if (!file) return;
-
-    setIsUploading(true);
-    setUploadStatus(null);
-    setShowPlusMenu(false);
-
-    try {
-      const formData = new FormData();
-      formData.append('file', file);
-
-      const response = await fetch('/api/sources/upload', {
-        method: 'POST',
-        body: formData
-      });
-
-      const data = await response.json();
-
-      if (!response.ok || !data.success) {
-        throw new Error(data.error || 'Upload failed');
-      }
-
-      setUploadStatus({
-        type: 'success',
-        message: `"${file.name}" uploaded successfully!`
-      });
-
-      // Clear the status after 5 seconds
-      setTimeout(() => setUploadStatus(null), 5000);
-
-    } catch (error: any) {
-      console.error('File upload error:', error);
-      setUploadStatus({
-        type: 'error',
-        message: error.message || 'Failed to upload file'
-      });
-      // Clear error after 5 seconds
-      setTimeout(() => setUploadStatus(null), 5000);
-    } finally {
-      setIsUploading(false);
-      // Reset file input
-      if (fileInputRef.current) {
-        fileInputRef.current.value = '';
-      }
-    }
-  };
-
-  const triggerFileUpload = () => {
-    fileInputRef.current?.click();
   };
 
   return (
@@ -899,97 +846,6 @@ const ChatContainer = ({ onVoiceMode, theme, capabilities }: ChatContainerProps)
       )}
 
       <div className="chat-input-container">
-        {/* Hidden file input */}
-        <input
-          ref={fileInputRef}
-          type="file"
-          className="hidden-file-input"
-          onChange={handleFileUpload}
-          accept=".pdf,.doc,.docx,.xls,.xlsx,.ppt,.pptx,.txt,.csv,.md,.json"
-        />
-
-        {/* Plus Menu */}
-        <div className="plus-menu-container">
-          <button
-            className={`plus-menu-toggle ${showPlusMenu ? 'open' : ''} ${isUploading ? 'uploading' : ''}`}
-            onClick={() => {
-              setShowPlusMenu(!showPlusMenu);
-              setShowCapabilitySubmenu(false);
-            }}
-            disabled={isUploading}
-            title="More options"
-          >
-            {isUploading ? (
-              <svg viewBox="0 0 24 24" fill="currentColor" width="20" height="20" className="spinner">
-                <path d="M12,4V2A10,10 0 0,0 2,12H4A8,8 0 0,1 12,4Z"/>
-              </svg>
-            ) : (
-              <svg viewBox="0 0 24 24" fill="currentColor" width="20" height="20">
-                <path d="M19 13h-6v6h-2v-6H5v-2h6V5h2v6h6v2z"/>
-              </svg>
-            )}
-          </button>
-
-          {showPlusMenu && (
-            <div className="plus-menu-dropdown">
-              {/* Agent Capability Option */}
-              <div
-                className="plus-menu-item has-submenu"
-                onMouseEnter={() => setShowCapabilitySubmenu(true)}
-                onMouseLeave={() => setShowCapabilitySubmenu(false)}
-              >
-                <svg viewBox="0 0 24 24" fill="currentColor" width="16" height="16">
-                  <path d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm-1 17.93c-3.95-.49-7-3.85-7-7.93 0-.62.08-1.21.21-1.79L9 15v1c0 1.1.9 2 2 2v1.93zm6.9-2.54c-.26-.81-1-1.39-1.9-1.39h-1v-3c0-.55-.45-1-1-1H8v-2h2c.55 0 1-.45 1-1V7h2c1.1 0 2-.9 2-2v-.41c2.93 1.19 5 4.06 5 7.41 0 2.08-.8 3.97-2.1 5.39z"/>
-                </svg>
-                <span>Model</span>
-                <span className="current-capability">{AGENT_CAPABILITIES.find(c => c.value === selectedCapability)?.label}</span>
-                <svg viewBox="0 0 24 24" fill="currentColor" width="12" height="12" className="submenu-arrow">
-                  <path d="M7.41 15.41L12 10.83l4.59 4.58L18 14l-6-6-6 6z"/>
-                </svg>
-
-                {/* Capability Submenu */}
-                {showCapabilitySubmenu && (
-                  <div className="capability-submenu">
-                    {AGENT_CAPABILITIES.map((cap) => (
-                      <button
-                        key={cap.value}
-                        className={`capability-submenu-option ${selectedCapability === cap.value ? 'selected' : ''}`}
-                        onClick={() => {
-                          setSelectedCapability(cap.value);
-                          setShowPlusMenu(false);
-                          setShowCapabilitySubmenu(false);
-                        }}
-                      >
-                        <span className="capability-option-label">{cap.label}</span>
-                        <span className="capability-option-desc">{cap.description}</span>
-                        {selectedCapability === cap.value && (
-                          <svg viewBox="0 0 24 24" fill="currentColor" width="14" height="14" className="check-icon">
-                            <path d="M9 16.17L4.83 12l-1.42 1.41L9 19 21 7l-1.41-1.41z"/>
-                          </svg>
-                        )}
-                      </button>
-                    ))}
-                  </div>
-                )}
-              </div>
-
-              {/* File Upload Option */}
-              <button
-                className="plus-menu-item"
-                onClick={() => {
-                  triggerFileUpload();
-                  setShowPlusMenu(false);
-                }}
-              >
-                <svg viewBox="0 0 24 24" fill="currentColor" width="16" height="16">
-                  <path d="M14 2H6c-1.1 0-2 .9-2 2v16c0 1.1.9 2 2 2h12c1.1 0 2-.9 2-2V8l-6-6zM6 20V4h7v5h5v11H6z"/>
-                  <path d="M8 15h8v2H8zm0-4h8v2H8z"/>
-                </svg>
-                <span>Upload File</span>
-              </button>
-            </div>
-          )}
-        </div>
 
         <div className="input-wrapper">
           {enableSTT && (
