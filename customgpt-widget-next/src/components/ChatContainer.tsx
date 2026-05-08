@@ -695,7 +695,6 @@ const ChatContainer = ({ onVoiceMode, theme, capabilities }: ChatContainerProps)
                     {displayContent}
                   </ReactMarkdown>
                 
-                  )}
                   <span
                     className="message-timestamp"
                     title={getFullTimestamp(msg.timestamp)}
