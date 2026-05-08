@@ -29,16 +29,16 @@ const VoiceMode = ({ onChatMode, capabilities }: VoiceModeProps) => {
     const messagesEndRef = useRef<HTMLDivElement>(null);
 
     // Force microphone permission request on load
-useEffect(() => {
-  const requestMicrophone = async () => {
-    try {
-      await navigator.mediaDevices.getUserMedia({ audio: true });
-    } catch (err) {
-      console.warn("Microphone permission denied:", err);
-    }
-  };
-  requestMicrophone();
-}, []);
+    useEffect(() => {
+      const requestMicrophone = async () => {
+        try {
+          await navigator.mediaDevices.getUserMedia({ audio: true });
+        } catch (err) {
+          console.warn("Microphone permission denied:", err);
+        }
+      };
+      requestMicrophone();
+    }, []);
 
     // Note: capabilities are validated in App.tsx before this component renders
     // Voice mode will only be accessible if capabilities.voice_mode_enabled is true
@@ -94,7 +94,15 @@ useEffect(() => {
                 }
             };
         }
-    }, [particleActions]);   // 
+
+        return () => {
+            if (typeof window !== 'undefined') {
+                delete (window as any).particleActions;
+                delete (window as any).updateCaptions;
+                delete (window as any).addUserMessage;
+            }
+        };
+    }, []);
 
     // === SAFETY NET FOR TTS / STT ===
     useEffect(() => {
@@ -115,15 +123,6 @@ useEffect(() => {
                 }
             };
         }
-    }, []);
-
-        return () => {
-            if (typeof window !== 'undefined') {
-                delete (window as any).particleActions;
-                delete (window as any).updateCaptions;
-                delete (window as any).addUserMessage;
-            }
-        };
     }, []);
 
     const handleStop = () => {
@@ -177,7 +176,7 @@ useEffect(() => {
             <div style={{
                 position: 'absolute',
                 width: '100%',
-                height: '100%'
+                height: '100%',
                 zIndex: 1,
                 pointerEvents: 'none'
             }}>
