@@ -22,7 +22,7 @@ interface Citation {
   id: number;
   url: string;
   title: string;
-  description: string | null;  // Can be null from API
+  description: string | null;
   image?: string | null;
 }
 
@@ -48,6 +48,8 @@ interface Message {
   timestamp: number;
   id: string;
   response_feedback?: ResponseFeedback | null;
+  citations?: Citation[];
+  citationDetails?: Citation[];
 }
 
 interface ChatContainerProps {
@@ -55,6 +57,11 @@ interface ChatContainerProps {
   theme: 'light' | 'dark';
   setTheme: (theme: 'light' | 'dark') => void;
   capabilities: SystemCapabilities;
+}
+
+interface UploadStatus {
+  type: 'success' | 'error';
+  message: string;
 }
 
 const ChatContainer = ({ onVoiceMode, theme, capabilities }: ChatContainerProps) => {
@@ -81,6 +88,7 @@ const ChatContainer = ({ onVoiceMode, theme, capabilities }: ChatContainerProps)
   const [reactingMessageId, setReactingMessageId] = useState<string | null>(null);
   const [isRecording, setIsRecording] = useState(false);
   const [isTranscribing, setIsTranscribing] = useState(false);
+  const [uploadStatus, setUploadStatus] = useState<UploadStatus | null>(null);
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const messagesContainerRef = useRef<HTMLDivElement>(null);
   const mediaRecorderRef = useRef<MediaRecorder | null>(null);
@@ -94,8 +102,8 @@ const ChatContainer = ({ onVoiceMode, theme, capabilities }: ChatContainerProps)
   useEffect(() => {
     messagesEndRef.current?.scrollIntoView({
       behavior: 'smooth',
-      block: 'nearest',     // Prevents scrolling parent page when in iframe
-      inline: 'nearest'     // Prevents horizontal scroll
+      block: 'nearest',
+      inline: 'nearest'
     });
   }, [messages]);
 
@@ -129,6 +137,17 @@ const ChatContainer = ({ onVoiceMode, theme, capabilities }: ChatContainerProps)
 
     createConversation();
   }, []);
+
+  const fetchCitationDetails = async (citations: Citation[]): Promise<Citation[]> => {
+    try {
+      // Implementation to fetch citation details from API
+      // For now, return citations as-is if they already have the needed data
+      return citations;
+    } catch (error) {
+      console.error('Failed to fetch citation details:', error);
+      return citations;
+    }
+  };
 
   const handleSend = async () => {
     if (!input.trim() || isLoading || !sessionId) return;
@@ -175,7 +194,7 @@ const ChatContainer = ({ onVoiceMode, theme, capabilities }: ChatContainerProps)
         id: assistantMessageId,
         response_feedback: messageData.response_feedback || null,
         citations: messageData.citations || [],
-        citationDetails: []  // Will be populated after animation
+        citationDetails: []
       };
       setMessages(prev => [...prev, assistantMessage]);
       setIsLoading(false);
@@ -360,7 +379,7 @@ const ChatContainer = ({ onVoiceMode, theme, capabilities }: ChatContainerProps)
         method: 'PUT',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
-          sessionId: sessionId,  // Use camelCase to match API route expectation
+          sessionId: sessionId,
           reaction: newReaction
         })
       });
@@ -424,6 +443,7 @@ const ChatContainer = ({ onVoiceMode, theme, capabilities }: ChatContainerProps)
     }
     // Older messages show full date
     return date.toLocaleDateString('en-US', { month: 'short', day: 'numeric', hour: 'numeric', minute: '2-digit' });
+  };
 
   const getFullTimestamp = (timestamp: number) => {
     const date = new Date(timestamp);
@@ -437,7 +457,7 @@ const ChatContainer = ({ onVoiceMode, theme, capabilities }: ChatContainerProps)
       second: '2-digit'
     });
   };
-  
+
   const handleStarterQuestionClick = (question: string) => {
     if (isLoading || !sessionId) return;
 
@@ -485,7 +505,7 @@ const ChatContainer = ({ onVoiceMode, theme, capabilities }: ChatContainerProps)
           id: assistantMessageId,
           response_feedback: messageData.response_feedback || null,
           citations: messageData.citations || [],
-          citationDetails: []  // Will be populated after animation
+          citationDetails: []
         };
         setMessages(prev => [...prev, assistantMessage]);
         setIsLoading(false);
@@ -581,7 +601,7 @@ const ChatContainer = ({ onVoiceMode, theme, capabilities }: ChatContainerProps)
             aria-label="Refresh page"
           >
             <svg viewBox="0 0 24 24" fill="currentColor" width="20" height="20">
-              <path d="M17.65 6.35C16.2 4.9 14.21 4 12 4c-4.42 0-7.99 3.58-7.99 8s3.57 8 7.99 8c3.73 0 6.84-2.55 7.73-6h-2.08c-.82 2.33-3.04 4-5.65 4-3.31 0-6-2.69-6-6s2.69-6 6-6c1.66 0 3.14.69 4.22 1.78L13 11h7V4l-2.35 2.35z"/>
+              <path d="M17.65 6.35C16.2 4.9 14.21 4 12 4c-4.42 0-7.99 3.58-7.99 8s3.57 8 7.99 8c3.73 0 6.84-2.55 7.73-6h-2.08c-.82 2.33-3.04 4-5.65 4-3.31 0-6-2.69-6-6s2.69-6 6-6c1.66 0 3.14.69 4.22 1.78l-1.51 1.51h5V6.5L17.65 6.35z"/>
             </svg>
           </button>
         </div>
@@ -600,7 +620,6 @@ const ChatContainer = ({ onVoiceMode, theme, capabilities }: ChatContainerProps)
                   alt={assistantName}
                   className="empty-state-avatar"
                   onError={(e) => {
-                    // Hide image on load error
                     e.currentTarget.style.display = 'none';
                   }}
                 />
@@ -650,7 +669,6 @@ const ChatContainer = ({ onVoiceMode, theme, capabilities }: ChatContainerProps)
                     height="36"
                     style={{ borderRadius: '50%', objectFit: 'cover' }}
                     onError={(e) => {
-                      // Fallback to default icon on error
                       e.currentTarget.style.display = 'none';
                       const svg = document.createElementNS('http://www.w3.org/2000/svg', 'svg');
                       svg.setAttribute('viewBox', '0 0 24 24');
@@ -694,7 +712,6 @@ const ChatContainer = ({ onVoiceMode, theme, capabilities }: ChatContainerProps)
                   >
                     {displayContent}
                   </ReactMarkdown>
-                
                   <span
                     className="message-timestamp"
                     title={getFullTimestamp(msg.timestamp)}
@@ -702,8 +719,6 @@ const ChatContainer = ({ onVoiceMode, theme, capabilities }: ChatContainerProps)
                     {formatTimestamp(msg.timestamp)}
                   </span>
                 </div>
-
-
                 <div className="message-actions">
                   {msg.role === 'assistant' && (
                     <>
@@ -776,7 +791,7 @@ const ChatContainer = ({ onVoiceMode, theme, capabilities }: ChatContainerProps)
                           </svg>
                         ) : (
                           <svg viewBox="0 0 24 24" fill="currentColor" width="16" height="16">
-                            <path d="M15 3H6c-.83 0-1.54.5-1.84 1.22l-3.02 7.05c-.09.23-.14.47-.14.73v2c0 1.1.9 2 2 2h6.31l-.95 4.57-.03.32c0 .41.17.79.44 1.06L9.83 23l6.59-6.59c.36-.36.58-.86.58-1.41V5c0-1.1-.9-2-2-2zm4 0v12h4V3h-4z"/>
+                            <path d="M15 3H6c-.83 0-1.54.5-1.84 1.22l-3.02 7.05c-.09.23-.14.47-.14.73v2c0 1.1.9 2 2 2h6.31l-.95 4.57-.03.32c0 .41.17.79.44 1.06L9.83 23l6.59-6.59c.36-.36.58-.86.58-1.41V9c0-1.1-.9-2-2-2z"/>
                           </svg>
                         )}
                       </button>
@@ -841,7 +856,6 @@ const ChatContainer = ({ onVoiceMode, theme, capabilities }: ChatContainerProps)
       )}
 
       <div className="chat-input-container">
-
         <div className="input-wrapper">
           {enableSTT && (
             <button
