@@ -25,20 +25,10 @@ export const useMicVADWrapper = (onLoadingChange: (loading: boolean) => void) =>
         positiveSpeechThreshold: 0.48,
         negativeSpeechThreshold: 0.32,
 
-        // Correct property names (ms instead of frames)
-        redemptionMs: 800,           // was redemptionFrames
-        preSpeechMs: 300,            // was preSpeechFrames
-        minSpeechMs: 300,            // was minSpeechFrames
-
-        // Critical Vercel / Next.js WASM fix
-        ortConfig: (ort) => {
-            ort.env.wasm.wasmPaths = {
-                'ort-wasm-simd.wasm': '/ort-wasm-simd.wasm',
-                'ort-wasm.wasm': '/ort-wasm.wasm'
-            };
-            console.log("[VAD] ONNX WASM paths configured for Vercel");
-        }
-    });
+        // Correct property names
+        redemptionMs: 800,
+        preSpeechMs: 300,
+        minSpeechMs: 300,
 
         // Critical Vercel WASM fix
         ortConfig: (ort) => {
@@ -52,6 +42,7 @@ export const useMicVADWrapper = (onLoadingChange: (loading: boolean) => void) =>
 
     const loadingRef = useRef(micVAD.loading);
 
+    // Watch loading state
     useEffect(() => {
         console.log("[VAD] Current loading state:", micVAD.loading);
         
@@ -62,7 +53,7 @@ export const useMicVADWrapper = (onLoadingChange: (loading: boolean) => void) =>
         }
     }, [micVAD.loading, onLoadingChange]);
 
-    // Force start if stuck in loading
+    // Force start if stuck
     useEffect(() => {
         if (micVAD && !micVAD.loading && micVAD.start) {
             console.log("[VAD] Forcing VAD start");
