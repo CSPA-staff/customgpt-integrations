@@ -20,12 +20,25 @@ export const useMicVADWrapper = (onLoadingChange: (loading: boolean) => void) =>
             console.log("[VAD] ⚠️ VAD misfire detected");
             onMisfire();
         },
+
         // More forgiving thresholds for calm interview speech
         positiveSpeechThreshold: 0.48,
         negativeSpeechThreshold: 0.32,
-        redemptionFrames: 10,
-        preSpeechFrames: 6,
-        minSpeechFrames: 6,
+
+        // Correct property names (ms instead of frames)
+        redemptionMs: 800,           // was redemptionFrames
+        preSpeechMs: 300,            // was preSpeechFrames
+        minSpeechMs: 300,            // was minSpeechFrames
+
+        // Critical Vercel / Next.js WASM fix
+        ortConfig: (ort) => {
+            ort.env.wasm.wasmPaths = {
+                'ort-wasm-simd.wasm': '/ort-wasm-simd.wasm',
+                'ort-wasm.wasm': '/ort-wasm.wasm'
+            };
+            console.log("[VAD] ONNX WASM paths configured for Vercel");
+        }
+    });
 
         // Critical Vercel WASM fix
         ortConfig: (ort) => {
