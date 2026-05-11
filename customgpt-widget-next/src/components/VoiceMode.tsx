@@ -135,9 +135,12 @@ const VoiceMode = ({ onChatMode, capabilities }: VoiceModeProps) => {
 
     const handleChatMode = () => {
         // Pause VAD when switching to chat mode
+        // Safe pause for both real VAD and fallback
         if (vad?.pause) {
-            vad.pause();
-        }
+        vad.pause();    
+    } else if (vad?.stop) {
+        vad.stop();
+    }
         onChatMode();
     };
 
