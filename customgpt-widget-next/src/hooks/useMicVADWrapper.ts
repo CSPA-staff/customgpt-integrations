@@ -25,9 +25,9 @@ export const useMicVADWrapper = (onLoadingChange: (loading: boolean) => void) =>
         positiveSpeechThreshold: 0.48,
         negativeSpeechThreshold: 0.32,
 
-        // Correct property names
+        // Correct property names according to the library
         redemptionMs: 800,
-        preSpeechMs: 300,
+        preSpeechPadMs: 300,     // ← was preSpeechMs
         minSpeechMs: 300,
 
         // Critical Vercel WASM fix
