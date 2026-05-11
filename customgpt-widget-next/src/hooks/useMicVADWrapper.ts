@@ -6,7 +6,7 @@ import { onMisfire, onSpeechEnd, onSpeechStart } from "@/lib/speech-manager";
 import { AI_CONFIG } from '@/config/constants';
 
 export const useMicVADWrapper = (onLoadingChange: (loading: boolean) => void) => {
-    const micVAD = useMicVAD({
+        const micVAD = useMicVAD({
         startOnLoad: true,
         onSpeechStart: () => {
             console.log("[VAD] ✅ Speech started detected!");
@@ -25,21 +25,17 @@ export const useMicVADWrapper = (onLoadingChange: (loading: boolean) => void) =>
         positiveSpeechThreshold: 0.48,
         negativeSpeechThreshold: 0.32,
 
-        // Correct property names according to the library
+        // Correct timing options
         redemptionMs: 800,
-        preSpeechPadMs: 300,     // ← was preSpeechMs
+        preSpeechPadMs: 300,
         minSpeechMs: 300,
 
-        // Critical Vercel WASM fix
+        // Simplified WASM config for Vercel
         ortConfig: (ort) => {
-            ort.env.wasm.wasmPaths = {
-                'ort-wasm-simd.wasm': '/ort-wasm-simd.wasm',
-                'ort-wasm.wasm': '/ort-wasm.wasm'
-            };
-            console.log("[VAD] ONNX WASM paths configured for Vercel");
+            ort.env.wasm.wasmPaths = "/";
+            console.log("[VAD] ✅ ONNX WASM configured with root path");
         }
     });
-
     const loadingRef = useRef(micVAD.loading);
 
     // Watch loading state
