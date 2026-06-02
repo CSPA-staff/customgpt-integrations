@@ -221,7 +221,6 @@ const VoiceMode = ({ onChatMode }: VoiceModeProps) => {
 
             {/* Big Record Button */}
             <button 
-                            <button 
                 className={`mic-button-large ${isRecording ? 'recording' : ''}`}
                 onClick={toggleRecording}
                 style={{
