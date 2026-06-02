@@ -219,27 +219,27 @@ const VoiceMode = ({ onChatMode }: VoiceModeProps) => {
                 </div>
             )}
 
-            {/* Big Record Button */}
+                        {/* Improved Speak Button */}
             <button 
                 className={`mic-button-large ${isRecording ? 'recording' : ''}`}
                 onClick={toggleRecording}
                 style={{
                     position: 'absolute',
-                    bottom: '100px',
+                    bottom: '90px',
                     left: '50%',
                     transform: 'translateX(-50%)',
-                    padding: '25px 50px',
-                    fontSize: '20px',
+                    padding: '16px 40px',
+                    fontSize: '18px',
                     fontWeight: 'bold',
                     zIndex: 100,
                     borderRadius: '50px',
-                    backgroundColor: isRecording ? '#ef4444' : '#3b82f6',
+                    backgroundColor: isRecording ? '#dc2626' : '#2563eb',
                     color: 'white',
                     border: 'none',
-                    boxShadow: '0 10px 20px rgba(0,0,0,0.3)'
+                    boxShadow: '0 10px 30px rgba(37, 99, 235, 0.4)',
                 }}
             >
-                {isRecording ? '⏹ STOP RECORDING' : '🎤 SPEAK NOW'}
+                {isRecording ? '⏹ STOP SPEAKING' : '🎤 SPEAK TO OLLIE'}
             </button>
 
             {/* Stop TTS Button */}
