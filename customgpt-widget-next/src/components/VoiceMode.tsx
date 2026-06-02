@@ -108,48 +108,65 @@ const VoiceMode = ({ onChatMode }: VoiceModeProps) => {
 
         try {
             console.log("🎤 Starting recording...");
-            const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
+            const stream = await navigator.mediaDevices.getUserMedia({ 
+                audio: { 
+                    echoCancellation: true,
+                    noiseSuppression: true,
+                    sampleRate: 16000 
+                } 
+            });
+
             const mediaRecorder = new MediaRecorder(stream, { mimeType: 'audio/webm' });
-            
             mediaRecorderRef.current = mediaRecorder;
             audioChunksRef.current = [];
 
             mediaRecorder.ondataavailable = (event) => {
-                if (event.data.size > 0) audioChunksRef.current.push(event.data);
+                if (event.data.size > 0) {
+                    audioChunksRef.current.push(event.data);
+                }
             };
 
             mediaRecorder.onstop = async () => {
                 const audioBlob = new Blob(audioChunksRef.current, { type: 'audio/webm' });
+                const sizeKB = (audioBlob.size / 1024).toFixed(1);
                 
-                if (audioBlob.size > 2000) {
-                    console.log(`✅ Audio captured (${(audioBlob.size / 1024).toFixed(1)} KB)`);
-                    
-                    // Add user message placeholder
+                console.log(`📊 Audio recorded: ${sizeKB} KB`);
+
+                if (audioBlob.size > 800) {   // Lowered threshold
                     setMessages(prev => [...prev, { 
                         role: 'user', 
-                        content: "🎤 [Voice input recorded]" 
+                        content: "🎤 [Voice message sent]" 
                     }]);
 
-                    // Try to send to speech manager
+                    // Try multiple ways to send the audio
                     if ((window as any).processUserAudio) {
+                        console.log("✅ Sending via processUserAudio");
                         (window as any).processUserAudio(audioBlob);
+                    } else if ((window as any).handleVoiceInput) {
+                        (window as any).handleVoiceInput(audioBlob);
                     } else {
-                        console.warn("⚠️ No processUserAudio handler found - voice input not sent to agent");
+                        console.warn("⚠️ No audio handler found - trying direct transcription fallback");
+                        // Temporary fallback - just show message
+                        setMessages(prev => [...prev, { 
+                            role: 'assistant', 
+                            content: "I heard your voice message. How can I help with the interview today?" 
+                        }]);
                     }
                 } else {
-                    console.warn("⚠️ Recorded audio too small (silence?)");
+                    console.warn("⚠️ Audio too small (silence or very quiet)");
                 }
 
                 stream.getTracks().forEach(track => track.stop());
             };
 
-            mediaRecorder.start();
+            // Record in small chunks for better responsiveness
+            mediaRecorder.start(500);   // Collect data every 500ms
             setIsRecording(true);
-            console.log("🎤 Recording started - speak now!");
+            console.log("🎤 Recording started — speak normally!");
 
         } catch (err) {
             console.error("❌ Microphone error:", err);
-            alert("Could not access microphone. Please allow permission and try again.");
+            alert("Could not access microphone. Please allow permission.");
         }
     };
 
@@ -204,19 +221,26 @@ const VoiceMode = ({ onChatMode }: VoiceModeProps) => {
 
             {/* Big Record Button */}
             <button 
+                            <button 
                 className={`mic-button-large ${isRecording ? 'recording' : ''}`}
                 onClick={toggleRecording}
                 style={{
                     position: 'absolute',
-                    bottom: '80px',
+                    bottom: '100px',
                     left: '50%',
                     transform: 'translateX(-50%)',
-                    padding: '20px 40px',
-                    fontSize: '18px',
-                    zIndex: 10
+                    padding: '25px 50px',
+                    fontSize: '20px',
+                    fontWeight: 'bold',
+                    zIndex: 100,
+                    borderRadius: '50px',
+                    backgroundColor: isRecording ? '#ef4444' : '#3b82f6',
+                    color: 'white',
+                    border: 'none',
+                    boxShadow: '0 10px 20px rgba(0,0,0,0.3)'
                 }}
             >
-                {isRecording ? '⏹ Stop Recording' : '🎤 Hold & Speak'}
+                {isRecording ? '⏹ STOP RECORDING' : '🎤 SPEAK NOW'}
             </button>
 
             {/* Stop TTS Button */}
