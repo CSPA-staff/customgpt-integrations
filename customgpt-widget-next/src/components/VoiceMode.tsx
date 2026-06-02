@@ -1,5 +1,4 @@
 'use client';
-
 import { useMicVADWrapper } from '@/hooks/useMicVADWrapper';
 import RotateLoader from 'react-spinners/RotateLoader';
 import { particleActions } from '@/lib/particle-manager';
@@ -8,7 +7,6 @@ import Canvas from '@/components/Canvas';
 import ReactMarkdown from 'react-markdown';
 import remarkGfm from 'remark-gfm';
 import remarkBreaks from 'remark-breaks';
-import { SystemCapabilities } from '@/hooks/useCapabilities';
 
 interface Message {
     role: 'user' | 'assistant';
@@ -22,17 +20,22 @@ interface VoiceModeProps {
   capabilities: SystemCapabilities;
 }
 
-const VoiceMode = ({ onChatMode, capabilities }: VoiceModeProps) => {
+const VoiceMode = ({ onChatMode }: VoiceModeProps) => {
     const [loading, setLoading] = useState(true);
     const [messages, setMessages] = useState<Message[]>([]);
     const [isPlaying, setIsPlaying] = useState(false);
+    const [isRecording, setIsRecording] = useState(false);
+
     const messagesEndRef = useRef<HTMLDivElement>(null);
+    const mediaRecorderRef = useRef<MediaRecorder | null>(null);
+    const audioChunksRef = useRef<Blob[]>([]);
 
     // Force microphone permission request on load
     useEffect(() => {
       const requestMicrophone = async () => {
         try {
           await navigator.mediaDevices.getUserMedia({ audio: true });
+          console.log("✅ Microphone permission granted");
         } catch (err) {
           console.warn("Microphone permission denied:", err);
         }
@@ -40,61 +43,33 @@ const VoiceMode = ({ onChatMode, capabilities }: VoiceModeProps) => {
       requestMicrophone();
     }, []);
 
-    // Note: capabilities are validated in App.tsx before this component renders
-    // Voice mode will only be accessible if capabilities.voice_mode_enabled is true
-
-    // Get primary color from CSS variables
-    const primaryColor = getComputedStyle(document.documentElement)
-        .getPropertyValue('--color-primary').trim() || '#8b5cf6';
-
-    // Capture VAD instance for lifecycle management
     const vad = useMicVADWrapper(setLoading);
 
-    // Auto-scroll to bottom when new messages arrive
+    // Auto-scroll to bottom
     useEffect(() => {
         messagesEndRef.current?.scrollIntoView({ behavior: "smooth" });
     }, [messages]);
 
-    // Listen for caption updates from speech-manager and expose particle actions
+    // Listen for caption updates
     useEffect(() => {
         if (typeof window !== 'undefined') {
-            // Expose particle actions to speech-manager
             (window as any).particleActions = particleActions;
 
-            // Track current blob URL for cleanup
-            let currentBlobUrl: string | undefined;
-
-            // Caption update handler
             (window as any).updateCaptions = (text: string, audioUrl?: string) => {
                 if (text) {
-                    // Add new AI message
                     setMessages(prev => [...prev, { role: 'assistant', content: text }]);
                     setIsPlaying(true);
-
-                    // Track blob URL for cleanup
-                    if (audioUrl?.startsWith('blob:')) {
-                        currentBlobUrl = audioUrl;
-                    }
                 } else {
-                    // Audio finished playing
                     setIsPlaying(false);
-
-                    // Cleanup blob URL
-                    if (currentBlobUrl) {
-                        URL.revokeObjectURL(currentBlobUrl);
-                        currentBlobUrl = undefined;
-                    }
                 }
             };
 
-            // User message handler
             (window as any).addUserMessage = (text: string) => {
                 if (text) {
                     setMessages(prev => [...prev, { role: 'user', content: text }]);
                 }
             };
         }
-
         return () => {
             if (typeof window !== 'undefined') {
                 delete (window as any).particleActions;
@@ -104,10 +79,9 @@ const VoiceMode = ({ onChatMode, capabilities }: VoiceModeProps) => {
         };
     }, []);
 
-    // === SAFETY NET FOR TTS / STT ===
+    // Safety net for audio
     useEffect(() => {
         if (typeof window !== 'undefined') {
-            // Global stop audio fallback
             (window as any).stopAudio = () => {
                 const audioElements = document.querySelectorAll('audio');
                 audioElements.forEach(audio => {
@@ -115,95 +89,106 @@ const VoiceMode = ({ onChatMode, capabilities }: VoiceModeProps) => {
                     audio.currentTime = 0;
                 });
             };
-
-            // Cleanup on unmount
-            return () => {
-                if ((window as any).stopAudio) {
-                    (window as any).stopAudio();
-                }
-            };
         }
     }, []);
 
-    const handleStop = () => {
-        // Stop any playing audio using the global stopAudio function
-        if ((window as any).stopAudio) {
-            (window as any).stopAudio();
+    // === SIMPLE RECORDING FUNCTION ===
+    const toggleRecording = async () => {
+        if (isRecording) {
+            if (mediaRecorderRef.current) {
+                mediaRecorderRef.current.stop();
+            }
+            setIsRecording(false);
+            console.log("🎤 Recording stopped");
+            return;
         }
+
+        try {
+            console.log("🎤 Starting recording...");
+            const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
+            const mediaRecorder = new MediaRecorder(stream, { mimeType: 'audio/webm' });
+            
+            mediaRecorderRef.current = mediaRecorder;
+            audioChunksRef.current = [];
+
+            mediaRecorder.ondataavailable = (event) => {
+                if (event.data.size > 0) audioChunksRef.current.push(event.data);
+            };
+
+            mediaRecorder.onstop = async () => {
+                const audioBlob = new Blob(audioChunksRef.current, { type: 'audio/webm' });
+                
+                if (audioBlob.size > 2000) {
+                    console.log(`✅ Audio captured (${(audioBlob.size / 1024).toFixed(1)} KB)`);
+                    
+                    // Add user message placeholder
+                    setMessages(prev => [...prev, { 
+                        role: 'user', 
+                        content: "🎤 [Voice input recorded]" 
+                    }]);
+
+                    // Try to send to speech manager
+                    if ((window as any).processUserAudio) {
+                        (window as any).processUserAudio(audioBlob);
+                    } else {
+                        console.warn("⚠️ No processUserAudio handler found - voice input not sent to agent");
+                    }
+                } else {
+                    console.warn("⚠️ Recorded audio too small (silence?)");
+                }
+
+                stream.getTracks().forEach(track => track.stop());
+            };
+
+            mediaRecorder.start();
+            setIsRecording(true);
+            console.log("🎤 Recording started - speak now!");
+
+        } catch (err) {
+            console.error("❌ Microphone error:", err);
+            alert("Could not access microphone. Please allow permission and try again.");
+        }
+    };
+
+    const handleStop = () => {
+        if ((window as any).stopAudio) (window as any).stopAudio();
         setIsPlaying(false);
     };
 
     const handleChatMode = () => {
-        // Pause VAD when switching to chat mode
-        // Safe pause for both real VAD and fallback
-        if (vad?.pause) {
-        vad.pause();    
-    } else if (vad?.stop) {
-        vad.stop();
-    }
+        if (vad?.pause) vad.pause();
+        else if (vad?.stop) vad.stop();
         onChatMode();
     };
 
-    // Cleanup VAD on component unmount
-    useEffect(() => {
-        return () => {
-            // Pause VAD to stop microphone access when component unmounts
-            if (vad?.pause) {
-                vad.pause();
-            }
-        };
-    }, []); // Empty deps - runs only on unmount
-
     if (loading) {
         return (
-            <div style={{
-                display: "flex",
-                justifyContent: "center",
-                alignItems: "center",
-                height: "100vh",
-                width: "100vw",
-            }}>
-                <RotateLoader
-                    loading={loading}
-                    color={primaryColor}
-                    aria-label="Loading Spinner"
-                    data-testid="loader"
-                />
+            <div style={{ display: "flex", justifyContent: "center", alignItems: "center", height: "100vh", width: "100vw" }}>
+                <RotateLoader loading={loading} color="#8b5cf6" />
             </div>
         );
     }
 
     return (
         <>
-            {/* Particle Animation Canvas */}
-            <div style={{
-                position: 'absolute',
-                width: '100%',
-                height: '100%',
-                zIndex: 1,
-                pointerEvents: 'none'
-            }}>
-                <Canvas draw={particleActions.draw}/>
+            {/* Particle Animation */}
+            <div style={{ position: 'absolute', width: '100%', height: '100%', zIndex: 1, pointerEvents: 'none' }}>
+                <Canvas draw={particleActions.draw} />
             </div>
 
-            {/* Back to Chat Button */}
+            {/* Back to Chat */}
             <button className="back-to-chat-button" onClick={handleChatMode}>
-                <svg viewBox="0 0 24 24" fill="currentColor" width="20" height="20">
-                    <path d="M20 11H7.83l5.59-5.59L12 4l-8 8 8 8 1.41-1.41L7.83 13H20v-2z"/>
-                </svg>
-                Back to Chat
+                ← Back to Chat
             </button>
 
-            {/* Scrollable Conversation History */}
+            {/* Conversation History */}
             {messages.length > 0 && (
                 <div className="voice-captions-container">
                     <div className="voice-messages">
                         {messages.map((msg, idx) => (
                             <div key={idx} className={`voice-message ${msg.role}`}>
                                 <div className="voice-message-content">
-                                    <ReactMarkdown
-                                        remarkPlugins={[remarkGfm, remarkBreaks]}
-                                    >
+                                    <ReactMarkdown remarkPlugins={[remarkGfm, remarkBreaks]}>
                                         {msg.content}
                                     </ReactMarkdown>
                                 </div>
@@ -214,17 +199,31 @@ const VoiceMode = ({ onChatMode, capabilities }: VoiceModeProps) => {
                 </div>
             )}
 
-            {/* Stop Button - shown when audio is playing */}
+            {/* Big Record Button */}
+            <button 
+                className={`mic-button-large ${isRecording ? 'recording' : ''}`}
+                onClick={toggleRecording}
+                style={{
+                    position: 'absolute',
+                    bottom: '80px',
+                    left: '50%',
+                    transform: 'translateX(-50%)',
+                    padding: '20px 40px',
+                    fontSize: '18px',
+                    zIndex: 10
+                }}
+            >
+                {isRecording ? '⏹ Stop Recording' : '🎤 Hold & Speak'}
+            </button>
+
+            {/* Stop TTS Button */}
             {isPlaying && (
                 <button className="stop-button" onClick={handleStop}>
-                    <svg viewBox="0 0 24 24" fill="currentColor">
-                        <rect x="6" y="6" width="12" height="12" rx="2"/>
-                    </svg>
                     Stop
                 </button>
             )}
         </>
     );
-}
+};
 
 export default VoiceMode;
