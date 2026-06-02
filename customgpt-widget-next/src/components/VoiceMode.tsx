@@ -7,6 +7,7 @@ import Canvas from '@/components/Canvas';
 import ReactMarkdown from 'react-markdown';
 import remarkGfm from 'remark-gfm';
 import remarkBreaks from 'remark-breaks';
+import { SystemCapabilities } from '@/hooks/useCapabilities';   // ← Add this line
 
 interface Message {
     role: 'user' | 'assistant';
@@ -15,12 +16,14 @@ interface Message {
 
 interface VoiceModeProps {
   onChatMode: () => void;
-  theme: 'light' | 'dark';
-  setTheme: (theme: 'light' | 'dark') => void;
-  capabilities: SystemCapabilities;
+  // Keep these even if not used right now (for future compatibility)
+  theme?: 'light' | 'dark';
+  setTheme?: (theme: 'light' | 'dark') => void;
+  capabilities?: SystemCapabilities;
 }
 
 const VoiceMode = ({ onChatMode }: VoiceModeProps) => {
+    // ... rest of your code stays the same
     const [loading, setLoading] = useState(true);
     const [messages, setMessages] = useState<Message[]>([]);
     const [isPlaying, setIsPlaying] = useState(false);
