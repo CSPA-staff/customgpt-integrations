@@ -129,14 +129,23 @@ const VoiceMode = ({ onChatMode }: VoiceModeProps) => {
             mediaRecorder.onstop = async () => {
                 const audioBlob = new Blob(audioChunksRef.current, { type: 'audio/webm' });
                 const sizeKB = (audioBlob.size / 1024).toFixed(1);
-                
+               
                 console.log(`📊 Audio recorded: ${sizeKB} KB`);
 
-                if (audioBlob.size > 800) {   // Lowered threshold
-                    setMessages(prev => [...prev, { 
-                        role: 'user', 
-                        content: "🎤 [Voice message sent]" 
+                if (audioBlob.size > 800) { 
+                    setMessages(prev => [...prev, {
+                        role: 'user',
+                        content: "🎤 [Voice message sent]"
                     }]);
+
+                    // === TRIGGER PARTICLES HERE ===
+                    if ((window as any).particleActions) {
+                        console.log("✨ Triggering particle reaction");
+                        (window as any).particleActions.onUserSpeaking();
+                        setTimeout(() => {
+                            (window as any).particleActions?.onUserStoppedSpeaking?.();
+                        }, 2500);
+                    }
 
                     // Try multiple ways to send the audio
                     if ((window as any).processUserAudio) {
@@ -145,11 +154,11 @@ const VoiceMode = ({ onChatMode }: VoiceModeProps) => {
                     } else if ((window as any).handleVoiceInput) {
                         (window as any).handleVoiceInput(audioBlob);
                     } else {
-                        console.warn("⚠️ No audio handler found - trying direct transcription fallback");
-                        // Temporary fallback - just show message
-                        setMessages(prev => [...prev, { 
-                            role: 'assistant', 
-                            content: "I heard your voice message. How can I help with the interview today?" 
+                        console.warn("⚠️ No audio handler found - using fallback");
+                        // Temporary fallback
+                        setMessages(prev => [...prev, {
+                            role: 'assistant',
+                            content: "I heard your voice message. How can I help with the interview today?"
                         }]);
                     }
                 } else {
