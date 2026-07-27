@@ -12,11 +12,21 @@
 import { utils } from '@ricky0123/vad-react';
 
 let conversationHistory = btoa('[]');  // Base64 encoded conversation history
+let conversationSessionId: string | null = null;
 let currentAudioElement: HTMLAudioElement | null = null;
 
 export const processSpeech = async (audio: Float32Array) => {
     const blob = createAudioBlob(audio);
     await validate(blob);
+    await sendData(blob);
+};
+
+/** Send audio captured by MediaRecorder through the same STT -> AI -> TTS pipeline. */
+export const processAudioBlob = async (blob: Blob) => {
+    if (blob.size === 0) {
+        throw new Error('No audio was recorded');
+    }
+
     await sendData(blob);
 };
 
@@ -53,7 +63,9 @@ const sendData = async (blob: Blob) => {
             method: 'POST',
             body: formData,
             headers: {
-                'conversation': conversationHistory
+                'conversation': conversationHistory,
+                ...(conversationSessionId ? { 'conversation-session': conversationSessionId 
+} : {})
             }
         });
 
@@ -129,6 +141,7 @@ const sendData = async (blob: Blob) => {
                         // Third event: TTS audio data
                         audioData = data.data;
                         conversationHistory = data.conversation || conversationHistory;
+                        conversationSessionId = data.sessionId || conversationSessionId;
 
                         console.log('[TIMING] ✅ TTS Complete - audio ready for playback');
                     } else if (currentEvent === 'error') {
@@ -241,6 +254,10 @@ const playAudioWithCaption = async (audioUrl: string, aiResponse: string) => {
         currentAudioElement.onended = () => {
             // Cleanup
             URL.revokeObjectURL(audioUrl);
+                        currentAudioElement = null;
+            if ((window as any).updateCaptions) {
+                (window as any).updateCaptions('');
+            }
             resolve();
         };
     });
