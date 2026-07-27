@@ -1,264 +1,168 @@
 'use client';
-import { useMicVADWrapper } from '@/hooks/useMicVADWrapper';
-import RotateLoader from 'react-spinners/RotateLoader';
-import { particleActions } from '@/lib/particle-manager';
-import { useState, useEffect, useRef } from 'react';
+
 import Canvas from '@/components/Canvas';
+import { SystemCapabilities } from '@/hooks/useCapabilities';
+import { particleActions } from '@/lib/particle-manager';
+import { processAudioBlob } from '@/lib/speech-manager';
+import { useEffect, useRef, useState } from 'react';
 import ReactMarkdown from 'react-markdown';
-import remarkGfm from 'remark-gfm';
 import remarkBreaks from 'remark-breaks';
-import { SystemCapabilities } from '@/hooks/useCapabilities';   // ← Add this line
+import remarkGfm from 'remark-gfm';
 
 interface Message {
-    role: 'user' | 'assistant';
-    content: string;
+ role: 'user' | 'assistant';
+  content: string;
 }
 
 interface VoiceModeProps {
   onChatMode: () => void;
-  // Keep these even if not used right now (for future compatibility)
   theme?: 'light' | 'dark';
   setTheme?: (theme: 'light' | 'dark') => void;
   capabilities?: SystemCapabilities;
 }
 
+type VoiceState = 'idle' | 'recording' | 'processing' | 'speaking';
+
 const VoiceMode = ({ onChatMode }: VoiceModeProps) => {
-    // ... rest of your code stays the same
-    const [loading, setLoading] = useState(true);
-    const [messages, setMessages] = useState<Message[]>([]);
-    const [isPlaying, setIsPlaying] = useState(false);
-    const [isRecording, setIsRecording] = useState(false);
+  const [messages, setMessages] = useState<Message[]>([]);
+  const [voiceState, setVoiceState] = useState<VoiceState>('idle');
+  const [error, setError] = useState('');
+  const messagesEndRef = useRef<HTMLDivElement>(null);
+  const mediaRecorderRef = useRef<MediaRecorder | null>(null);
+  const streamRef = useRef<MediaStream | null>(null);
+  const chunksRef = useRef<Blob[]>([]);
 
-    const messagesEndRef = useRef<HTMLDivElement>(null);
-    const mediaRecorderRef = useRef<MediaRecorder | null>(null);
-    const audioChunksRef = useRef<Blob[]>([]);
+  useEffect(() => {
+    messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
+  }, [messages]);
 
-    // Force microphone permission request on load
-    useEffect(() => {
-      const requestMicrophone = async () => {
+  useEffect(() => {
+    (window as any).particleActions = particleActions;
+    (window as any).updateCaptions = (text: string) => {
+      if (text) {
+        setMessages(previous => [...previous, { role: 'assistant', content: text }]);
+        setVoiceState('speaking');
+      } else {
+        setVoiceState('idle');
+      }
+    };
+    (window as any).addUserMessage = (text: string) => {
+      if (text) setMessages(previous => [...previous, { role: 'user', content: text }]);    
+    };
+
+    return () => {
+      streamRef.current?.getTracks().forEach(track => track.stop());
+      (window as any).stopAudio?.();
+      delete (window as any).particleActions;
+      delete (window as any).updateCaptions;
+      delete (window as any).addUserMessage;
+    };
+  }, []);
+
+  const finishRecording = () => {
+    const recorder = mediaRecorderRef.current;
+    if (recorder?.state === 'recording') recorder.stop();
+  };
+
+  const startRecording = async () => {
+    setError('');
+    try {
+      const stream = await navigator.mediaDevices.getUserMedia({
+        audio: { echoCancellation: true, noiseSuppression: true, autoGainControl: true },
+      });
+      streamRef.current = stream;
+      chunksRef.current = [];
+
+      const preferredType = ['audio/webm;codecs=opus', 'audio/webm', 'audio/mp4']
+        .find(type => MediaRecorder.isTypeSupported(type));
+      const recorder = new MediaRecorder(stream, preferredType ? { mimeType: preferredType } : undefined);
+      mediaRecorderRef.current = recorder;
+      recorder.ondataavailable = event => {
+        if (event.data.size) chunksRef.current.push(event.data);
+      };
+      recorder.onstop = async () => {
+        stream.getTracks().forEach(track => track.stop());
+        streamRef.current = null;
+        const audio = new Blob(chunksRef.current, { type: recorder.mimeType || 'audio/webm' });
+        setVoiceState('processing');
+        particleActions.onProcessing();
         try {
-          await navigator.mediaDevices.getUserMedia({ audio: true });
-          console.log("✅ Microphone permission granted");
-        } catch (err) {
-          console.warn("Microphone permission denied:", err);
+          await processAudioBlob(audio);
+        } catch (recordingError) {
+          console.error('[VoiceMode] Voice request failed:', recordingError);
+          setError(recordingError instanceof Error ? recordingError.message : 'Ollie could not process that recording. Please try again.');
+          setVoiceState('idle');
+          particleActions.reset();
         }
       };
-      requestMicrophone();
-    }, []);
-
-    const vad = useMicVADWrapper(setLoading);
-
-    // Auto-scroll to bottom
-    useEffect(() => {
-        messagesEndRef.current?.scrollIntoView({ behavior: "smooth" });
-    }, [messages]);
-
-    // Listen for caption updates
-    useEffect(() => {
-        if (typeof window !== 'undefined') {
-            (window as any).particleActions = particleActions;
-
-            (window as any).updateCaptions = (text: string, audioUrl?: string) => {
-                if (text) {
-                    setMessages(prev => [...prev, { role: 'assistant', content: text }]);
-                    setIsPlaying(true);
-                } else {
-                    setIsPlaying(false);
-                }
-            };
-
-            (window as any).addUserMessage = (text: string) => {
-                if (text) {
-                    setMessages(prev => [...prev, { role: 'user', content: text }]);
-                }
-            };
-        }
-        return () => {
-            if (typeof window !== 'undefined') {
-                delete (window as any).particleActions;
-                delete (window as any).updateCaptions;
-                delete (window as any).addUserMessage;
-            }
-        };
-    }, []);
-
-    // Safety net for audio
-    useEffect(() => {
-        if (typeof window !== 'undefined') {
-            (window as any).stopAudio = () => {
-                const audioElements = document.querySelectorAll('audio');
-                audioElements.forEach(audio => {
-                    audio.pause();
-                    audio.currentTime = 0;
-                });
-            };
-        }
-    }, []);
-
-    // === SIMPLE RECORDING FUNCTION ===
-    const toggleRecording = async () => {
-        if (isRecording) {
-            if (mediaRecorderRef.current) {
-                mediaRecorderRef.current.stop();
-            }
-            setIsRecording(false);
-            console.log("🎤 Recording stopped");
-            return;
-        }
-
-        try {
-            console.log("🎤 Starting recording...");
-            const stream = await navigator.mediaDevices.getUserMedia({ 
-                audio: { 
-                    echoCancellation: true,
-                    noiseSuppression: true,
-                    sampleRate: 16000 
-                } 
-            });
-
-            const mediaRecorder = new MediaRecorder(stream, { mimeType: 'audio/webm' });
-            mediaRecorderRef.current = mediaRecorder;
-            audioChunksRef.current = [];
-
-            mediaRecorder.ondataavailable = (event) => {
-                if (event.data.size > 0) {
-                    audioChunksRef.current.push(event.data);
-                }
-            };
-
-            mediaRecorder.onstop = async () => {
-                const audioBlob = new Blob(audioChunksRef.current, { type: 'audio/webm' });
-                const sizeKB = (audioBlob.size / 1024).toFixed(1);
-               
-                console.log(`📊 Audio recorded: ${sizeKB} KB`);
-
-                if (audioBlob.size > 800) { 
-                    setMessages(prev => [...prev, {
-                        role: 'user',
-                        content: "🎤 [Voice message sent]"
-                    }]);
-
-                    // === TRIGGER PARTICLES HERE ===
-                    if ((window as any).particleActions) {
-                        console.log("✨ Triggering particle reaction");
-                        (window as any).particleActions.onUserSpeaking();
-                        setTimeout(() => {
-                            (window as any).particleActions?.onUserStoppedSpeaking?.();
-                        }, 2500);
-                    }
-
-                    // Try multiple ways to send the audio
-                    if ((window as any).processUserAudio) {
-                        console.log("✅ Sending via processUserAudio");
-                        (window as any).processUserAudio(audioBlob);
-                    } else if ((window as any).handleVoiceInput) {
-                        (window as any).handleVoiceInput(audioBlob);
-                    } else {
-                        console.warn("⚠️ No audio handler found - using fallback");
-                        // Temporary fallback
-                        setMessages(prev => [...prev, {
-                            role: 'assistant',
-                            content: "I heard your voice message. How can I help with the interview today?"
-                        }]);
-                    }
-                } else {
-                    console.warn("⚠️ Audio too small (silence or very quiet)");
-                }
-
-                stream.getTracks().forEach(track => track.stop());
-            };
-
-            // Record in small chunks for better responsiveness
-            mediaRecorder.start(500);   // Collect data every 500ms
-            setIsRecording(true);
-            console.log("🎤 Recording started — speak normally!");
-
-        } catch (err) {
-            console.error("❌ Microphone error:", err);
-            alert("Could not access microphone. Please allow permission.");
-        }
-    };
-
-    const handleStop = () => {
-        if ((window as any).stopAudio) (window as any).stopAudio();
-        setIsPlaying(false);
-    };
-
-    const handleChatMode = () => {
-        if (vad?.pause) vad.pause();
-        else if (vad?.stop) vad.stop();
-        onChatMode();
-    };
-
-    if (loading) {
-        return (
-            <div style={{ display: "flex", justifyContent: "center", alignItems: "center", height: "100vh", width: "100vw" }}>
-                <RotateLoader loading={loading} color="#8b5cf6" />
-            </div>
-        );
+      recorder.start(250);
+      setVoiceState('recording');
+      particleActions.onUserSpeaking();
+    } catch (microphoneError) {
+      console.error('[VoiceMode] Microphone access failed:', microphoneError);
+      setError('Microphone access is required. Please allow it in your browser and try again.');
+      setVoiceState('idle');
     }
+  };
 
-    return (
-        <>
-            {/* Particle Animation */}
-            <div style={{ position: 'absolute', width: '100%', height: '100%', zIndex: 1, pointerEvents: 'none' }}>
-                <Canvas draw={particleActions.draw} />
-            </div>
+  const handlePrimaryAction = () => {
+    if (voiceState === 'recording') finishRecording();
+    else if (voiceState === 'idle') void startRecording();
+  };
 
-            {/* Back to Chat */}
-            <button className="back-to-chat-button" onClick={handleChatMode}>
-                ← Back to Chat
-            </button>
+  const handleStopAudio = () => {
+    (window as any).stopAudio?.();
+    setVoiceState('idle');
+  };
 
-            {/* Conversation History */}
-            {messages.length > 0 && (
-                <div className="voice-captions-container">
-                    <div className="voice-messages">
-                        {messages.map((msg, idx) => (
-                            <div key={idx} className={`voice-message ${msg.role}`}>
-                                <div className="voice-message-content">
-                                    <ReactMarkdown remarkPlugins={[remarkGfm, remarkBreaks]}>
-                                        {msg.content}
-                                    </ReactMarkdown>
-                                </div>
-                            </div>
-                        ))}
-                        <div ref={messagesEndRef} />
-                    </div>
+  const labels: Record<VoiceState, string> = {
+    idle: 'Talk to Ollie',
+    recording: 'Send to Ollie',
+    processing: 'Ollie is thinking…',
+    speaking: 'Ollie is speaking…',
+  };
+
+  return (
+    <main className="voice-mode-container">
+      <div className="voice-mode-canvas"><Canvas draw={particleActions.draw} /></div>
+      <button className="back-to-chat-button" onClick={onChatMode} aria-label="Back to chat">
+        <svg viewBox="0 0 24 24" fill="currentColor" aria-hidden="true"><path d="M20 11H7.83l5.59-5.59L12 4l-8 8 8 8 1.41-1.41L7.83 13H20z" /></svg>
+        Back to Chat
+      </button>
+
+      {messages.length > 0 && (
+        <section className="voice-captions-container" aria-label="Voice conversation">
+          <div className="voice-messages">
+            {messages.map((message, index) => (
+              <div key={`${message.role}-${index}`} className={`voice-message ${message.role}`}>
+                <div className="voice-message-content">
+                  <ReactMarkdown remarkPlugins={[remarkGfm, remarkBreaks]}>{message.content}</ReactMarkdown>
                 </div>
-            )}
+              </div>
+            ))}
+            <div ref={messagesEndRef} />
+          </div>
+        </section>
+      )}
 
-                        {/* Improved Speak Button */}
-            <button 
-                className={`mic-button-large ${isRecording ? 'recording' : ''}`}
-                onClick={toggleRecording}
-                style={{
-                    position: 'absolute',
-                    bottom: '90px',
-                    left: '50%',
-                    transform: 'translateX(-50%)',
-                    padding: '16px 40px',
-                    fontSize: '18px',
-                    fontWeight: 'bold',
-                    zIndex: 100,
-                    borderRadius: '50px',
-                    backgroundColor: isRecording ? '#dc2626' : '#2563eb',
-                    color: 'white',
-                    border: 'none',
-                    boxShadow: '0 10px 30px rgba(37, 99, 235, 0.4)',
-                }}
-            >
-                {isRecording ? '⏹ STOP SPEAKING' : '🎤 SPEAK TO OLLIE'}
-            </button>
-
-            {/* Stop TTS Button */}
-            {isPlaying && (
-                <button className="stop-button" onClick={handleStop}>
-                    Stop
-                </button>
-            )}
-        </>
-    );
+      <div className="voice-controls">
+        <button
+          className={`voice-primary-button ${voiceState}`}
+          onClick={handlePrimaryAction}
+          disabled={voiceState === 'processing' || voiceState === 'speaking'}
+          aria-label={labels[voiceState]}
+        >
+          <span className="voice-button-icon" aria-hidden="true">
+            {voiceState === 'recording' ? <span className="send-arrow">↑</span> : <span className="mic-icon" />}
+          </span>
+          <span>{labels[voiceState]}</span>
+        </button>
+        {voiceState === 'recording' && <p className="voice-status"><span /> Listening — tap to send</p>}
+        {error && <p className="voice-error" role="alert">{error}</p>}
+        {voiceState === 'speaking' && <button className="voice-stop-link" onClick={handleStopAudio}>Stop response</button>}
+      </div>
+    </main>
+  );
 };
 
 export default VoiceMode;
