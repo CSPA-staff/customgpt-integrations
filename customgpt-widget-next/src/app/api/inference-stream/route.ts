@@ -43,6 +43,7 @@ export async function POST(request: NextRequest) {
         const formData = await request.formData();
         const audioFile = formData.get('audio') as File;
         const conversationHeader = request.headers.get('conversation') || 'W10=';
+        const existingSessionId = request.headers.get('conversation-session') || undefined;
         timings.parse = ((performance.now() - parseStart) / 1000).toFixed(3);
 
         if (!audioFile) {
@@ -65,7 +66,7 @@ export async function POST(request: NextRequest) {
 
         let sessionPromise: Promise<{session_id: string}> | undefined;
 
-        if (CUSTOMGPT_CONFIG.useCustomGPT) {
+          if (CUSTOMGPT_CONFIG.useCustomGPT && !existingSessionId) {
           const sessionStart = performance.now();
           sessionPromise = customGPTClient.createConversation().then(conv => {
             timings.create_session = ((performance.now() - sessionStart) / 1000).toFixed(3);
@@ -113,7 +114,7 @@ export async function POST(request: NextRequest) {
 
         // 4. Get AI completion
         const aiStart = performance.now();
-        let sessionId: string | undefined;
+        let sessionId: string | undefined = existingSessionId;
 
         if (sessionPromise) {
           const conv = await sessionPromise;
@@ -174,6 +175,7 @@ export async function POST(request: NextRequest) {
         sendEvent('audio', {
           data: audioData.toString('base64'),
           conversation: conversationB64,
+          sessionId,
           timings: timings
         });
 
