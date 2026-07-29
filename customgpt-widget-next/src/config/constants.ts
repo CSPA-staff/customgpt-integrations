@@ -62,7 +62,9 @@ export const OPENAI_CONFIG = {
 // ============================================
 
 export const AI_CONFIG = {
-  voiceMaxTokens: parseNumber(process.env.AI_VOICE_MAX_TOKENS, 150),
+  // Unlimited by default so voice answers finish naturally. Set a positive
+  // value only when a deployment deliberately needs shorter responses.
+  voiceMaxTokens: parseNumber(process.env.AI_VOICE_MAX_TOKENS, 0),
   vadPositiveSpeechThreshold: parseFloat(process.env.VAD_POSITIVE_SPEECH_THRESHOLD, 0.90),
   vadNegativeSpeechThreshold: parseFloat(process.env.VAD_NEGATIVE_SPEECH_THRESHOLD, 0.75),
 } as const;
