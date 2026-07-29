@@ -154,6 +154,9 @@ Add these in your deployment platform:
 OPENAI_API_KEY=sk-your-key-here
 USE_CUSTOMGPT=false
 AI_COMPLETION_MODEL=gpt-4o-mini
+# Keep at 0 (or omit) to let voice responses finish without a token cutoff.
+# Set a positive value only if you intentionally want to limit response length.
+AI_VOICE_MAX_TOKENS=0
 TTS_PROVIDER=OPENAI
 LANGUAGE=en
 ```
