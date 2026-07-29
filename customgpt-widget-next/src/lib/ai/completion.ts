@@ -5,7 +5,6 @@
 
 import OpenAI from 'openai';
 import { customGPTClient } from '@/lib/ai/customgpt-client';
-import { truncateForVoice } from '@/lib/ai/truncate';
 import { CUSTOMGPT_CONFIG, OPENAI_CONFIG, AI_CONFIG } from '@/config/constants';
 
 const USE_CUSTOMGPT = CUSTOMGPT_CONFIG.useCustomGPT;
@@ -22,7 +21,7 @@ interface Message {
  *
  * @param messages - Conversation history
  * @param sessionId - Session ID for CustomGPT
- * @param forVoice - Whether to truncate response for voice mode
+ * @param forVoice - Whether voice-specific generation settings apply
  * @returns AI response text
  */
 export async function getCompletion(
@@ -51,18 +50,19 @@ export async function getCompletion(
       }
 
       const client = new OpenAI({ apiKey: OPENAI_API_KEY });
+      // A zero value intentionally leaves the model's output uncapped. Token
+      // limits can stop generation mid-sentence, which is especially jarring
+      // when the response is immediately read aloud.
+      const maxTokens = forVoice && AI_CONFIG.voiceMaxTokens > 0
+        ? AI_CONFIG.voiceMaxTokens
+        : undefined;
       const completion = await client.chat.completions.create({
         model: AI_COMPLETION_MODEL,
         messages: messages as any,
-        max_tokens: forVoice ? AI_CONFIG.voiceMaxTokens : undefined,
+        max_tokens: maxTokens,
       });
 
       response = completion.choices[0]?.message?.content || '';
-    }
-
-    // Truncate for voice mode if needed
-    if (forVoice && USE_CUSTOMGPT) {
-      response = truncateForVoice(response);
     }
 
     const duration = ((performance.now() - startTime) / 1000).toFixed(3);
